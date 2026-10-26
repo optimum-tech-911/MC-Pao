@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CharacterPortrait } from './CharacterPortrait';
-import { MobileControls } from './MobileControls';
+import { MobileControlPicker, MobileControls, type MobileControlMode } from './MobileControls';
 import { getArtStatus } from '../game/polishedSprites';
 import { getSpriteBank } from '../game/sprites';
 import { GameCanvas, type HudSnapshot, type TouchInputRef } from './GameCanvas';
@@ -32,6 +32,7 @@ import {
 
 function readPreference(key:string,fallback:string){try{return localStorage.getItem(key)??fallback;}catch{return fallback;}}
 function savePreference(key:string,value:string){try{localStorage.setItem(key,value);}catch{/* Private browsing can deny storage. */}}
+function readMobileControlMode():MobileControlMode{const saved=readPreference('mcpao_control_mode','buttons');return saved==='gestures'||saved==='joystick'?saved:'buttons';}
 
 const CUSTOM_LEVEL_STORAGE_KEY = 'mcpao_custom_level_v1';
 
@@ -178,6 +179,7 @@ const BlueRichardMilleSvgIcon: React.FC = () => (
 );
 
 export const GameShell: React.FC = () => {
+  const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const [gameState, setGameState] = useState<GameState>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(import.meta.env.DEV ? window.location.search : '');
@@ -251,12 +253,12 @@ export const GameShell: React.FC = () => {
   const [musicEnabled, setMusicEnabled] = useState<boolean>(() => readPreference('mcpao_music','true') !== 'false');
   const [sfxVol, setSfxVol] = useState<number>(() => {const n=Number(readPreference('mcpao_sfx','70'));return Number.isFinite(n)?Math.max(0,Math.min(100,n)):70;});
   const [showTouchControls, setShowTouchControls] = useState<boolean>(() => window.matchMedia('(pointer: coarse)').matches);
+  const [mobileControlMode, setMobileControlMode] = useState<MobileControlMode>(readMobileControlMode);
   const [retrySignal, setRetrySignal] = useState(0);
   const [titleExtras, setTitleExtras] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
-  const [portraitDismissed, setPortraitDismissed] = useState(false);
-  const [isPortraitPhone, setIsPortraitPhone] = useState(() => window.innerHeight > window.innerWidth && window.matchMedia('(pointer: coarse)').matches);
   const [voiceEnabled, setVoiceEnabled] = useState(() => readPreference('mcpao_voice','false') === 'true');
+  useEffect(()=>savePreference('mcpao_control_mode',mobileControlMode),[mobileControlMode]);
 
   // Worldwide Leaderboard State
   const [leaderboardOpen, setLeaderboardOpen] = useState<boolean>(() => {
@@ -293,6 +295,7 @@ export const GameShell: React.FC = () => {
     jump: false,
     jumpJustPressed: false,
     down: false,
+    downJustPressed: false,
   });
 
   useEffect(() => {
@@ -306,7 +309,6 @@ export const GameShell: React.FC = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsPortraitPhone(window.innerHeight > window.innerWidth && window.matchMedia('(pointer: coarse)').matches);
       if (window.matchMedia('(pointer: coarse)').matches) {
         setShowTouchControls(true);
       }
@@ -611,7 +613,7 @@ export const GameShell: React.FC = () => {
         const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> };
         await orientation.lock?.('landscape').catch(() => {});
       }
-    } catch { setPortraitDismissed(true); }
+    } catch { /* Fullscreen is optional in browsers that do not support it. */ }
   };
 
   const shareResult = async () => {
@@ -642,7 +644,7 @@ export const GameShell: React.FC = () => {
   return (
     <main className="game-root relative w-screen h-dvh overflow-hidden select-none">
       <GameCanvas
-        gameState={gameState === 'playing' && (!art.ready || (isPortraitPhone && !portraitDismissed)) ? 'paused' : gameState}
+        gameState={gameState === 'playing' && !art.ready ? 'paused' : gameState}
         resetSignal={resetSignal}
         retrySignal={retrySignal}
         weatherMode={weatherMode}
@@ -676,7 +678,7 @@ export const GameShell: React.FC = () => {
           </header>
           <div className="hud-route"><span>{hud.zone}</span><span>{hud.bottleRecovered?'BOUTEILLE SAUVÉE':hud.checkpoint?'⚑ POINT VIP ACTIVÉ':'OBJECTIF : LA BOUTEILLE À 8 000 €'}</span></div>
           {hud.hint && !hud.calloutActive && <div className="game-hint" data-testid="game-hint">{hud.hint}</div>}
-          {showTouchControls && gameState === 'playing' && art.ready && <MobileControls input={touchInputRef}/>}
+          {showTouchControls && gameState === 'playing' && art.ready && <MobileControls input={touchInputRef} mode={mobileControlMode}/>}
         </div>
       )}
 
@@ -914,7 +916,7 @@ export const GameShell: React.FC = () => {
                 </div>
                 <p className="lobby-challenge">La prochaine ligne, c’est la tienne. <span>À toi de jouer.</span></p>
               </div>
-              <div className="lobby-play"><button type="button" data-start="true" disabled={!art.ready} className="lobby-start" onClick={startStandardGame}><span>{art.ready?'JOUER':`CHARGEMENT ${Math.round(art.loaded/art.total*100)} %`}</span><b>→</b></button><p>{showTouchControls?'TACTILE · DOUBLE SAUT · SANS TÉLÉCHARGEMENT':'← → AVANCER · ESPACE SAUTER ×2 · ↓ SLAM'}</p></div>
+              <div className="lobby-play">{isTouchDevice && <MobileControlPicker mode={mobileControlMode} onChange={setMobileControlMode}/>}<button type="button" data-start="true" disabled={!art.ready} className="lobby-start" onClick={startStandardGame}><span>{art.ready?'JOUER':`CHARGEMENT ${Math.round(art.loaded/art.total*100)} %`}</span><b>→</b></button><p>{!isTouchDevice?'← → AVANCER · ESPACE SAUTER ×2 · ↓ SLAM':mobileControlMode==='gestures'?'GLISSE ← → · ↑ SAUT · ↓ SLAM':mobileControlMode==='joystick'?'JOYSTICK ← → · ↑ SAUT · ↓ SLAM':'◀ ▶ · SAUT ×2 · SLAM'}</p></div>
               <nav className="lobby-extras"><button data-testid="title-boss-btn" disabled={!art.ready} onClick={startBossArena}>DÉFI DON MARCO</button><button onClick={()=>setTitleExtras(v=>!v)} aria-expanded={titleExtras}>EXTRAS {titleExtras?'−':'+'}</button>{titleExtras&&<div className="lobby-extra-menu"><button data-testid="title-costume-btn" onClick={handleCycleCostume}>CHANGER DE TENUE</button><button data-testid="title-editor-btn" onClick={openLevelEditor}>ATELIER DE NIVEAUX</button></div>}</nav>
             </section>
           </div>
@@ -922,11 +924,6 @@ export const GameShell: React.FC = () => {
         </div>
       )}
       {!art.ready && art.errors.length>0 && <div className="art-error" role="alert"><strong>La Riviera n’a pas fini de charger.</strong><p>Vérifie ta connexion, puis réessaie.</p><button onClick={()=>location.reload()}>RECHARGER</button></div>}
-
-      {gameState === 'playing' && isPortraitPhone && !portraitDismissed && <div className="portrait-prompt" role="note">
-        <span className="rotate-icon">↻</span><strong>LA RIVIERA EN GRAND.</strong><p>Tourne ton téléphone pour profiter de toute la côte.</p>
-        <button onClick={()=>void toggleFullscreen()}>PLEIN ÉCRAN ↗</button><button className="portrait-skip" onClick={()=>setPortraitDismissed(true)}>Continuer en portrait</button>
-      </div>}
 
       {/* ====================================================================
           4. PAUSE & SETTINGS MODAL
@@ -944,6 +941,7 @@ export const GameShell: React.FC = () => {
               <div><span>Tenue [C]</span><button onClick={handleCycleCostume}>{activeCostumeMeta.shortLabel}</button></div>
               <div><span>Lumière de la côte</span><button onClick={cycleWeather}>{WEATHER_LABELS[weatherMode]}</button></div>
               <div><span>Commandes tactiles</span><button onClick={()=>setShowTouchControls(v=>!v)}>{showTouchControls?'VISIBLES':'MASQUÉES'}</button></div>
+              {isTouchDevice && <div className="pause-control-setting"><span>Mode de commandes</span><MobileControlPicker mode={mobileControlMode} onChange={setMobileControlMode}/></div>}
             </div>
             <footer><button onClick={()=>{if(playingCustomLevel)startCustomLevelPlay();else if(spawnAtBoss)startBossArena();else startStandardGame();}}>RECOMMENCER LE PARCOURS</button><button onClick={openLevelEditor}>Atelier de niveaux</button><button onClick={()=>setGameState('title')}>Retour à l’accueil</button></footer>
           </div>

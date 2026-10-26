@@ -62,6 +62,7 @@ export interface TouchInputRef {
   jump: boolean;
   jumpJustPressed: boolean;
   down?: boolean;
+  downJustPressed?: boolean;
 }
 
 interface GameCanvasProps {
@@ -626,6 +627,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       touchInputRef.current.right = false;
       touchInputRef.current.jump = false;
       touchInputRef.current.jumpJustPressed = false;
+      touchInputRef.current.downJustPressed = false;
       touchInputRef.current.down = false;
       downWasHeld = false;
     };
@@ -768,6 +770,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (gameStateRef.current !== 'playing') {
         justPressed.clear();
         touchInputRef.current.jumpJustPressed = false;
+        touchInputRef.current.downJustPressed = false;
         return;
       }
 
@@ -883,11 +886,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const downJustPressed =
         justPressed.has('ArrowDown') ||
         justPressed.has('KeyS') ||
+        touchInputRef.current.downJustPressed ||
         (Boolean(touchInputRef.current.down) && !downWasHeld);
       downWasHeld = Boolean(touchInputRef.current.down);
 
       justPressed.clear();
       touchInputRef.current.jumpJustPressed = false;
+      touchInputRef.current.downJustPressed = false;
 
       // Update Electric-Blue Richard Mille Watch Overdrive timer & sapphire particles
       player.invulnTimer = Math.max(0, player.invulnTimer - dt);

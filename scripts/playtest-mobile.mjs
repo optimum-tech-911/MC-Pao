@@ -28,7 +28,7 @@ for(const [engine,type]of [['chromium',chromium],['webkit',webkit]]){
   assert.ok(palettes[1][0]>palettes[0][0]+35,'white outfit must visibly change the shirt');assert.ok(palettes[2][0]>palettes[0][0]+25&&palettes[2][0]>palettes[2][2]+30,'gold outfit must visibly change the shirt');
   await page.screenshot({path:`${out}/${engine}-${width}x${height}-title.png`});
   await page.evaluate(()=>window.advanceTime(0));await page.locator('[data-start]').tap();await page.waitForTimeout(40);
-  if(height>width){assert.ok(await page.locator('.portrait-prompt').isVisible());await page.getByRole('button',{name:'Continuer en portrait'}).tap();}
+  if(height>width){assert.equal(await page.locator('.portrait-prompt').count(),0);assert.equal(await page.evaluate(()=>document.body.dataset.state),'playing');}
   const read=()=>page.evaluate(()=>JSON.parse(window.render_game_to_text()));
   const tick=async n=>page.evaluate(ms=>window.advanceTime(ms),n*1000/60);
   const pointer=async(id,type,pointerId)=>page.locator(`[data-testid="${id}"]`).dispatchEvent(type,{pointerId,pointerType:'touch',bubbles:true});

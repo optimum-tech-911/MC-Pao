@@ -19,15 +19,15 @@ The old conflicting esbuild dependency was replaced with a Vite-compatible versi
 `--force` and `--legacy-peer-deps` are unnecessary.
 
 To test on a physical phone, connect it to the same Wi-Fi and open
-`http://YOUR_COMPUTER_LAN_IP:3000`. Landscape provides the widest view;
-portrait has a paused rotation prompt and an explicit option to continue.
+`http://YOUR_COMPUTER_LAN_IP:3000`. The game starts in either orientation.
 Some browser features, such as clipboard sharing, need HTTPS outside localhost.
 
 ## Controls
 
-- Phone: hold **◀ / ▶** to move, tap **SAUT** twice to double jump, **SLAM** to
-  dive or pose on deck. Movement and jumping support two fingers, thumb sliding,
-  pointer capture and cancellation.
+- Phone: choose **Gestes**, **Joystick**, or **Boutons** in the lobby. Gestures
+  swipe left/right to move, up to jump, and down to slam. The joystick uses the
+  same directions; buttons use **◀ / ▶**, **SAUT**, and **SLAM**. The choice is
+  saved on the device and can also be changed in the pause menu.
 - Keyboard: **A/D** or **←/→**, **Space/W/↑** to jump, **S/↓** to slam,
   **Esc/P** to pause, **C** for outfits, **F** for fullscreen.
 - Choose Black VIP, Classic White or Monaco Gold directly in the lobby.
