@@ -1,0 +1,6 @@
+{
+  "name": "MC Pao: Ciao Marco! — 16-Bit Mediterranean Platformer",
+  "description": "A vibrant 16-bit pixel-art 2D side-scrolling platformer starring MC Pao stomping on miniature Marco Mouly enemies across a sunny Mediterranean coastal town.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,11 @@
+# Riviera references · 26 October 2026
+
+The game is an unofficial comic fan game. Dialogue is original game writing, not authenticated quotations. Scores, bonuses and opponents are fictional; no cash prize or brand endorsement is implied.
+
+- [MC Pao interview, Monaco News](https://www.youtube.com/watch?v=vAB7GB5k_Bc): public interview used for the Pao silhouette, blue sunglasses, jewelry, Monaco setting and the original Riviera music direction. Transcript and thumbnail inspected; no borrowed recording or music.
+- [La guerre des bouteilles : MC Pao vs Marco Mouly](https://www.youtube.com/shorts/ZIgEkL_WhKE), MC Pao Clips, 20 October 2026: public compilation referring to the bottle rivalry and amounts announced by the participants. Its description links the original [Pao reel](https://www.instagram.com/reel/DepDrL1tgRS/) and [Marco reel](https://www.instagram.com/reel/DesKIL5RgSH/). Instagram itself could not be retrieved by the research connector.
+- [Public bottle-rivalry compilation](https://www.youtube.com/watch?v=-ydyOuhvCoE), ZOUBIDATV, 21 October 2026: transcript describes a restaurant sequence with a €36,000 bottle and a Pao response. These are statements in entertainment clips, not independently verified purchases. Used for the optional **Cuvée 36K** collectible (+3,600 fictional points), bottle-war naming and comic invoice projectiles. Rival allegations were not adopted as facts. Available view counts do not establish that these are the most viral clips.
+- [Richard Mille RM 53-01, official historical model](https://www.richardmille.com/historical-models/rm-53-01-tourbillon-pablo-mac-donough): reference for the blue strap, curved carbon case, screws, cable bridges and skeleton dial. The reference identifies a design; research did not verify that Pao owns that exact model.
+- [Lamborghini Aventador SVJ, official history](https://www.lamborghini.com/en-en/history/aventador-svj): reference for the wedge profile, Y headlights, side intake, scissor door, rear wing and **V12** engine. The gold color is game styling.
+
+The €8,000 main mission and €36,000 reference are game motifs drawn from the public rivalry. The blue-watch turbo, stomps, boss attacks, yacht encounters and getaway are original gameplay fiction.
