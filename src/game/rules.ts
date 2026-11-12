@@ -637,9 +637,6 @@ export function selectPlayerAnimState(
   if (player.swimming) {
     return 'swim';
   }
-  if (player.scooterTimer > 0) {
-    return 'scooter';
-  }
   if (player.invulnTimer > 1.1) {
     return 'hurt';
   }
@@ -653,7 +650,7 @@ export function selectPlayerAnimState(
     return 'vip_pose';
   }
   if (Math.abs(player.vx) > 15) {
-    return 'run';
+    return player.scooterTimer > 0 ? 'scooter' : 'run';
   }
   return 'idle';
 }

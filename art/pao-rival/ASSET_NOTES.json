@@ -1,0 +1,55 @@
+{
+  "method": "built-in image_gen",
+  "approvedConcept": "art/pao-rival/approved-enemy-v1.png",
+  "source": "approved-mini-pao-v1",
+  "referenceRoles": [
+    "Approved Mini MC Pao enemy concept: character identity, proportions, palette",
+    "Ground sheet reference for charge sheet: production model consistency"
+  ],
+  "sheets": [
+    {
+      "path": "public/assets/pao-rival/mini-pao-ground-v1.png",
+      "grid": [
+        4,
+        4
+      ],
+      "frames": [
+        "waddle0",
+        "waddle1",
+        "waddle2",
+        "waddle3",
+        "waddle4",
+        "waddle5",
+        "waddle6",
+        "waddle7",
+        "caller0",
+        "caller1",
+        "caller2",
+        "caller3",
+        "windup0",
+        "windup1",
+        "squished0",
+        "squished1"
+      ],
+      "prompt": "Use case: stylized-concept\nAsset type: production transparent 16-bit game animation sprite sheet.\nInput image 1 is the APPROVED MINI MC PAO character model and visual identity reference. Preserve this exact silly character, not the normal tall hero.\nPrimary request: create a clean 4 columns by 4 rows grid of 16 separate full-body enemy animation frames, all facing SCREEN RIGHT in side / three-quarter profile. No text, no grid lines, no board, no labels. Genuine transparent background.\nIdentity invariants: enormous messy swept brown quiff, bushy dark-brown beard, blue mirrored oversized sunglasses, thick silver chain and round gold-centered pendant, comically tight black T-shirt showing a small belly, black tiny joggers, stubby arms and bent short legs, red-and-white chunky trainers. Funny embarrassed pout/angry brows, the same absurd big-head tiny-body silhouette as approved. Crisp pixel art and black outlines; clear at 48px game size.\nLayout: EXACT 4x4 equal cells, each character fully inside its own cell with generous empty gutters. Actor occupies about 74% cell height and 70% cell width. Constant character scale, constant torso/hip center and ground baseline for walking/windup frames; no camera motion, no perspective changes, no shadows or floor. A whole cell per frame, no parts crossing into adjacent cells.\nRead row major, left to right:\nROW 1 frames 1-4: first half of an eight-frame bumbling waddle walk cycle. Frame1 near red shoe forward heel contact/far shoe back, frame2 weight lowering and chain sways forward, frame3 near planted leg under body/far knee lifts forward, frame4 far shoe swings forward nearing contact, tiny arms swing opposite legs.\nROW 2 frames 5-8: second half of SAME cycle. Frame5 far shoe forward heel contact/near shoe back, frame6 opposite weight lowering/chain swings back, frame7 far planted leg under body/near knee lifts, frame8 near shoe swings forward toward next frame1 contact. Hair and belly bounce subtly; no duplicates, no running flying poses. Continuous loop.\nROW 3 frames 9-12: four phone-call windup animation frames, still SCREEN RIGHT. Tiny black phone at near ear, crooked sunglasses expose one worried wide eye. Frame9 lifts phone,10 presses ear and mouth opens,11 gesturing palm/huge ranting mouth,12 returning gesture while phone stays ear. Same scale, feet stable baseline. Phone is clearly visible dark rectangle.\nROW 4 frames 13-16:13 angry charge preparation crouch with gritted teeth and fists drawn back;14 stronger forward lean ready to rush, knees bent, tiny fists up;15 comic stomp defeat pose squashed onto backside, hair flattened slightly, glasses crooked and mouth open;16 settling flattened squat seated with hands up, dazed expression. Last two frames lower overall height naturally; do not stretch to normal standing height. No gore, no realistic injury, no separate stars/effects.\nConstraints: produce precisely16 distinct sprite actors, side-facing RIGHT, coherent same model/palette/proportions from approved sheet. Clean true alpha, no cream background/checkerboard painted into image, no ground shadow, no stray fragments. This is game source art, not a presentation board."
+    },
+    {
+      "path": "public/assets/pao-rival/mini-pao-charge-v1.png",
+      "grid": [
+        4,
+        2
+      ],
+      "frames": [
+        "charge0",
+        "charge1",
+        "charge2",
+        "charge3",
+        "charge4",
+        "charge5",
+        "charge6",
+        "charge7"
+      ],
+      "prompt": "Use case: stylized-concept\nAsset type: transparent production 16-bit platform-game enemy animation sheet, 8 sequential frames.\nInput 1 is the APPROVED Mini MC Pao character identity board. Input 2 is the production walk/phone sprite sheet: match its exact model, palette, detail and standing scale.\nPrimary request: EXACT 4 columns by 2 rows sprite grid, eight distinct consecutive frames of a frantic RIGHT-facing charge run. True transparent background, no text or labels, no floor or shadows. All full-body actors fit completely in equal cells with generous clear gutters, stable hip center/common ground baseline; never allow limbs to cross cells.\nCharacter invariant: ridiculous enormous messy brown quiff, thick beard, huge blue sunglasses lowered in angry brows, tight black tee with tiny belly showing, chunky silver chain with gold-centered pendant, tiny black joggers, very short legs and redwhite trainers. Same absurd big-head/round-tiny-body silhouette and crisp pixel art as approved. Arms pump, angry teeth grit, torso pitched forward, chain bounces and hair trails.\nRead row-major left to right: 1 near-foot forward contact/far-foot back,2 crouched recoil weight on near-foot,3 near-leg pushing back/far-knee passing forward,4 short airborne extension far-foot reaching forward,5 far-foot forward contact/near-foot back,6 opposite compressed recoil,7 far-leg pushes back/near-knee passes,8 short airborne extension near-foot reaches next frame1 contact. Coherent continuous looping eight-frame run with both legs alternating, opposite bent-arm swings, subtle head bob. Physical cute short-legged frantic rushing, clear foot-contact phases.\nConstraints: EIGHT frames only, 4x2, all facing SCREEN RIGHT, fixed character size comparable to sheet2, actor about74% cellheight; no printed checkerboard, no beige background, no duplicate frames, no motion line graphics/dust/stars or floating body fragments. Preserve recognizable approved silly Pao."
+    }
+  ]
+}

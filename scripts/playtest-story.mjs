@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';import fs from 'node:fs/promises';
 const mobile=process.argv.includes('--mobile'),bonus=process.argv.includes('--bonus');
-const out=`${process.cwd()}/output/playtest-${bonus?'bonus':'story'}${mobile?'-mobile':''}`;await fs.mkdir(out,{recursive:true});
+const target = new URL(process.env.GAME_URL || 'http://localhost:3000');
+if (process.argv.includes('--marco')) target.searchParams.set('character', 'marco');
+const character = target.searchParams.get('character') === 'marco' ? 'marco' : 'pao';
+const expectedRoute = character === 'marco' ? 'grand_cru' : 'riviera';
+const out=`${process.cwd()}/output/playtest-${bonus?'bonus':'story'}${mobile?'-mobile':''}${character==='marco'?'-marco':''}`;await fs.mkdir(out,{recursive:true});
 const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:mobile?{width:844,height:390}:{width:1280,height:800},isMobile:mobile,hasTouch:mobile});const errors=[];page.on('pageerror',e=>errors.push(String(e)));
-await page.goto(process.env.GAME_URL || 'http://localhost:3000',{waitUntil:'networkidle'});await page.evaluate(()=>window.advanceTime(0));await page.locator('[data-start="true"]').click();await page.waitForTimeout(30);
+await page.goto(target.href,{waitUntil:'networkidle'});await page.evaluate(()=>window.advanceTime(0));await page.locator('[data-start="true"]').click();await page.waitForTimeout(30);
 const read=()=>page.evaluate(()=>JSON.parse(window.render_game_to_text()));
+assert.equal((await read()).character, character, 'story must retain the selected hero');
+assert.equal((await read()).route.id, expectedRoute, 'story must start on the selected hero’s route');
 const tick=async frames=>{await page.evaluate(ms=>window.advanceTime(ms),frames*1000/60);};
 const cdp=mobile?await page.context().newCDPSession(page):null;
 const points={};
@@ -29,7 +35,7 @@ for(let frame=0;frame<60*180;frame+=4){
  if(bonus&&s.secretBottles>0){await page.waitForTimeout(40);assert.equal(await page.locator('[data-testid="game-hint"]').count(),0,'tutorial must yield to the reward callout');await page.screenshot({path:out+'/cuvee-36k.png'});break;}
  if(s.mode==='gameover'){
    log.push({frame,event:'gameover',state:s});await page.waitForFunction(()=>document.body.dataset.state==='gameover');await page.screenshot({path:out+`/gameover-${retries}.png`});
-   if(s.checkpoint&&retries<3){await setKeys([]);await page.locator('[data-start="true"]').click();await page.waitForTimeout(30);retries++;deathChecked=true;burst=0;continue;}
+   if(s.checkpoint&&retries<3){await setKeys([]);await page.locator('[data-start="true"]').click();await page.waitForTimeout(30);retries++;deathChecked=true;burst=0;cool=0;assert.equal((await read()).route.id,expectedRoute,'checkpoint retry must retain the selected route');assert.equal((await read()).character,character,'checkpoint retry must retain the selected hero');continue;}
    break;
  }
  if(s.checkpoint&&!seenCheckpoint){seenCheckpoint=true;log.push({frame,event:'checkpoint',state:s});await page.screenshot({path:out+'/checkpoint.png'});}
@@ -45,14 +51,19 @@ for(let frame=0;frame<60*180;frame+=4){
  }
  else if(p.x>s.boss.x-240 || seenCheckpoint){
    const b=s.boss;
-   let target=b.state==='vulnerable'?b.x-12:Math.max(b.x-145,2950);
-   if(b.state==='hurt')target=b.x-120;
-   if(Math.abs(target-p.x)>10)action.push(target>p.x?'ArrowRight':'ArrowLeft');
-   if(p.grounded&&b.state==='vulnerable'&&Math.abs(p.x-target)<150&&cool<=0){burst=17;cool=25;}
-   if(p.grounded&&(b.state==='charging'||(b.state==='leaping'&&b.y>90))&&Math.abs(b.x-p.x)<200&&cool<=0){burst=18;cool=25;}
-   const incoming=s.projectiles.some(q=>q.vx<0&&q.x>p.x&&q.x-p.x<185&&q.y<p.y+65&&q.y>p.y-60);
-   if((p.grounded||p.airJumpsLeft>0)&&incoming&&cool<=0){burst=14;cool=24;}
-   if(b.state==='hurt'&&b.hp<=4&&!p.grounded&&p.airJumpsLeft>0&&p.vy>-100&&cool<=0){burst=14;cool=24;}
+   // Clear the viaduct caller before staging, so a surviving enemy cannot
+   // repeatedly fire into our back while we wait for the boss's shield.
+   const caller=s.enemies.find(e=>e.state!=='squished'&&e.archetype==='caller'&&e.x<b.x&&Math.abs(e.x-p.x)<350);
+   const target=caller?caller.x-2:b.state==='vulnerable'?b.x+5:b.x-210;
+   const stoppingDistance=p.vx*Math.abs(p.vx)/(2*1700);
+   if(Math.abs(target-p.x-stoppingDistance)>8)action.push(target-p.x-stoppingDistance>0?'ArrowRight':'ArrowLeft');
+   const attack=p.grounded&&(caller?Math.abs(target-p.x)<190:b.state==='vulnerable'&&Math.abs(target-p.x)<140);
+   const incoming=s.projectiles.some(q=>((q.vx<0&&q.x>p.x-12&&q.x-p.x<130)||(q.vx>0&&q.x<p.x+54&&p.x-q.x<130))&&q.y<p.y+68&&q.y>p.y-70);
+   const adjustLanding=caller&&!p.grounded&&p.airJumpsLeft>0&&p.vy>80&&p.y+p.h>caller.y+20;
+   // The boss's invoice fan falls short of the distant staging point. Approach
+   // only an open shield and jump late enough to descend onto its head.
+   if(cool<=0&&(attack||adjustLanding||((p.grounded||p.airJumpsLeft>0)&&incoming))){burst=20;cool=28;}
+
  }
  else{
    action=['ArrowRight'];
@@ -73,12 +84,14 @@ for(let frame=0;frame<60*180;frame+=4){
 }
 await setKeys([]);const end=await read();await page.screenshot({path:out+'/last.png'});await fs.writeFile(out+'/report.json',JSON.stringify({seenCheckpoint,deathChecked,retries,end,log,errors},null,2));await browser.close();
 assert.equal(errors.length,0,errors.join('\n'));
+assert.equal(end.route.id,expectedRoute,'completed run must retain the selected route');
+assert.equal(end.character,character,'completed run must retain the selected hero');
 if(bonus){assert.equal(end.secretBottles,1,'must reach and collect the optional 36K bottle');console.log('Secret Cuvée 36K bottle collected through normal controls.');}
 else{
 assert.ok(seenCheckpoint && deathChecked, 'must exercise death and checkpoint recovery');
 assert.equal(end.boss.defeated,true,'must defeat the boss through normal inputs');
 assert.equal(end.player.inGoldenLambo,true,'must reach the getaway');
 assert.equal(end.mode,'gameover','must finish at the result screen');
-console.log(`Story passed: checkpoint retry, boss victory, ${end.score} €, ${end.player.hp} hearts. Artifacts: ${out}`);
+console.log(`Story passed (${character}): checkpoint retry, boss victory, ${end.score} €, ${end.player.hp} hearts. Artifacts: ${out}`);
 
 }

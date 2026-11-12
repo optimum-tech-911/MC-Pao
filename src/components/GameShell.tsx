@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CharacterPortrait } from './CharacterPortrait';
+import { getStoryRoute } from '../game/storyRoutes';
+import { CHARACTERS, characterMeta, isCharacterId, type CharacterId } from '../game/characters';
 import { MobileControlPicker, MobileControls, type MobileControlMode } from './MobileControls';
 import { getArtStatus } from '../game/polishedSprites';
+import { getMarcoArtStatus, preloadMarcoArtwork } from '../game/approvedMarcoSprites';
+import { getPaoRivalArtStatus, preloadPaoRivalArtwork } from '../game/approvedPaoRivals';
 import { getSpriteBank } from '../game/sprites';
 import { GameCanvas, type HudSnapshot, type TouchInputRef } from './GameCanvas';
 import {
@@ -33,6 +37,10 @@ import {
 function readPreference(key:string,fallback:string){try{return localStorage.getItem(key)??fallback;}catch{return fallback;}}
 function savePreference(key:string,value:string){try{localStorage.setItem(key,value);}catch{/* Private browsing can deny storage. */}}
 function readMobileControlMode():MobileControlMode{const saved=readPreference('mcpao_control_mode','buttons');return saved==='gestures'||saved==='joystick'?saved:'buttons';}
+function selectedArtStatus(character:CharacterId) {
+  const base=getArtStatus(),marco=getMarcoArtStatus(),rival=getPaoRivalArtStatus();
+  return character==='marco'?{ready:base.ready&&marco.ready&&rival.ready,loaded:base.loaded+marco.loaded+rival.loaded,total:base.total+marco.total+rival.total,errors:[...base.errors,...marco.errors,...rival.errors]}:base;
+}
 
 const CUSTOM_LEVEL_STORAGE_KEY = 'mcpao_custom_level_v1';
 
@@ -205,6 +213,16 @@ export const GameShell: React.FC = () => {
     return false;
   });
 
+  const [character, setCharacter] = useState<CharacterId>(() => {
+    const requested = new URLSearchParams(import.meta.env.DEV ? window.location.search : '').get('character');
+    if (isCharacterId(requested)) return requested;
+    const saved = readPreference('mcpao_character', 'pao');
+    return isCharacterId(saved) ? saved : 'pao';
+  });
+  const hero = characterMeta(character);
+  const storyRoute = getStoryRoute(character);
+  useEffect(() => { savePreference('mcpao_character', character); document.body.dataset.character = character; }, [character]);
+
   const [costume, setCostume] = useState<PaoCostume>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(import.meta.env.DEV ? window.location.search : '');
@@ -217,8 +235,8 @@ export const GameShell: React.FC = () => {
     return saved==='classic_white'||saved==='monaco_gold'?saved:'yacht_black_vip';
   });
 
-  const [art,setArt]=useState(getArtStatus);
-  useEffect(()=>{getSpriteBank();const update=()=>setArt(getArtStatus());update();window.addEventListener('mcpao-art-ready',update);return()=>window.removeEventListener('mcpao-art-ready',update);},[]);
+  const [art,setArt]=useState(()=>selectedArtStatus(character));
+  useEffect(()=>{getSpriteBank();preloadMarcoArtwork();if(character==='marco')preloadPaoRivalArtwork();const update=()=>setArt(selectedArtStatus(character));update();window.addEventListener('mcpao-art-ready',update);return()=>window.removeEventListener('mcpao-art-ready',update);},[character]);
   useEffect(()=>savePreference('mcpao_costume',costume),[costume]);
 
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('heat_haze');
@@ -328,24 +346,24 @@ export const GameShell: React.FC = () => {
   };
 
   const startStandardGame = useCallback(() => {
-    if(!getArtStatus().ready)return;
+    if(!selectedArtStatus(character).ready)return;
     setPlayingCustomLevel(false);
     setSpawnAtBoss(false);
     document.body.dataset.state = 'playing';
     setResetSignal((n) => n + 1);
     setGameState('playing');
     focusCanvas();
-  }, []);
+  }, [character]);
 
   const startBossArena = useCallback(() => {
-    if(!getArtStatus().ready)return;
+    if(!selectedArtStatus(character).ready)return;
     setPlayingCustomLevel(false);
     setSpawnAtBoss(true);
     document.body.dataset.state = 'playing';
     setResetSignal((n) => n + 1);
     setGameState('playing');
     focusCanvas();
-  }, []);
+  }, [character]);
 
   const startCustomLevelPlay = useCallback(() => {
     setPlayingCustomLevel(true);
@@ -402,9 +420,10 @@ export const GameShell: React.FC = () => {
   }, []);
 
   const handleCycleCostume = useCallback(() => {
+    if (character === 'marco') return;
     setCostume((prev) => cyclePaoCostume(prev));
     soundFX.playChainPickup();
-  }, []);
+  }, [character]);
 
   const activeCostumeMeta =
     COSTUME_OPTIONS.find((c) => c.id === costume) || COSTUME_OPTIONS[0];
@@ -617,10 +636,10 @@ export const GameShell: React.FC = () => {
   };
 
   const shareResult = async () => {
-    const text = `CIAO MARCO ! ${Math.round(finalStats.score).toLocaleString('fr-FR')} € · combo ×${Math.max(1, finalStats.maxCombo)} · ${finalStats.victory ? 'Bouteille sauvée, départ en Lambo !' : 'Qui fera mieux ?'} #MCPao`;
+    const text = `${hero.title} ${hero.name} · ${Math.round(finalStats.score).toLocaleString('fr-FR')} € · combo ×${Math.max(1, finalStats.maxCombo)} · ${finalStats.victory ? 'Bouteille sauvée, départ en Lambo !' : 'Qui fera mieux ?'} #MCPao`;
     const url = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? '' : location.origin;
     try {
-      if (navigator.share) await navigator.share({title:'MC Pao · Ciao Marco !',text,...(url ? {url} : {})});
+      if (navigator.share) await navigator.share({title:`MC Pao · ${hero.title}`,text,...(url ? {url} : {})});
       else { await navigator.clipboard.writeText(text + (url ? `\n${url}` : '')); setShareStatus('Résultat copié !'); }
     } catch (error) { if ((error as Error).name !== 'AbortError') setShareStatus('Le partage est indisponible dans ce navigateur.'); }
   };
@@ -649,6 +668,7 @@ export const GameShell: React.FC = () => {
         retrySignal={retrySignal}
         weatherMode={weatherMode}
         costume={costume}
+        character={character}
         customLevel={activeCustomPayload}
         spawnAtBoss={spawnAtBoss}
         editorTool={editorTool}
@@ -667,10 +687,10 @@ export const GameShell: React.FC = () => {
               <div className="hud-hearts" aria-label={`Lives remaining: ${hud.hp} of ${hud.maxHp}`}>
                 {Array.from({length:hud.maxHp},(_,i)=><span key={i} className={i<hud.hp?'':'heart-empty'}>♥</span>)}
               </div>
-              <div className="hud-money"><span>LA CAISSE</span><strong data-testid="hud-score">{Math.round(hud.score).toLocaleString('fr-FR')} €</strong></div>
+              <div className="hud-money"><span data-testid="hud-character">{hero.shortName} · LA CAISSE</span><strong data-testid="hud-score">{Math.round(hud.score).toLocaleString('fr-FR')} €</strong></div>
               {hud.combo>1 && <span className="combo-pill">×{hud.combo} COMBO</span>}
             </div>
-            {hud.bossActive && <div className="boss-meter"><span>DON MARCO <b>{hud.bossState==='vulnerable'?'↓ SAUTE !':hud.bossState.includes('charge')?'→ CHARGE !':hud.bossState.includes('leap')?'↑ ATTENTION !':'◆ BOUCLIER'}</b></span><div>{Array.from({length:hud.bossMaxHp},(_,i)=><i key={i} className={i<hud.bossHp?'':'spent'}/>)}</div></div>}
+            {hud.bossActive && <div className="boss-meter"><span>{hero.bossName} <b>{hud.bossState==='vulnerable'?'↓ SAUTE !':hud.bossState.includes('charge')?'→ CHARGE !':hud.bossState.includes('leap')?'↑ ATTENTION !':'◆ BOUCLIER'}</b></span><div>{Array.from({length:hud.bossMaxHp},(_,i)=><i key={i} className={i<hud.bossHp?'':'spent'}/>)}</div></div>}
             <div className="hud-right">
               {hud.scooterSec>0 && <span className="turbo-pill">RM TURBO <strong>{hud.scooterSec}s</strong></span>}
               <button className="hud-pause" aria-label="Pause Game (P)" onClick={togglePause}>Ⅱ</button>
@@ -823,7 +843,7 @@ export const GameShell: React.FC = () => {
                     <div className="text-[9px] font-extrabold uppercase tracking-wider text-[#fef08a]">
                       {tool.badge}
                     </div>
-                    <div className="text-xs font-bold whitespace-nowrap">{tool.label}</div>
+                    <div className="text-xs font-bold whitespace-nowrap">{character === 'marco' ? (tool.id === 'boss_don_marco' ? 'Boss MC Pao VIP' : tool.label.replace('Marco', 'Pao')) : tool.label}</div>
                   </button>
                 );
               })}
@@ -894,36 +914,46 @@ export const GameShell: React.FC = () => {
           <header className="lobby-top"><span><i/> FAN GAME · ÉDITION RIVIERA</span><button onClick={toggleMute} aria-label={muted?'Activer le son':'Couper le son'}>{muted?'SON OFF':'SON ON'} ♫</button></header>
           <div className="lobby-grid">
             <section className="lobby-hero">
-              <div className="lobby-heading"><p>SAINT-TROPEZ → MONACO</p><h1>MC PAO<span>CIAO MARCO !</span></h1><p className="lobby-tagline">Une bouteille. Tous les Marcos. Ton record.</p></div>
-              <div className="lobby-scene" aria-label="MC Pao affronte Marco sur la Riviera">
+              <div className="lobby-heading"><p>MC PAO · ÉDITION RIVIERA</p><h1>{character === 'marco' ? <>MARCO<span>CIAO PAO !</span></> : <>MC PAO<span>CIAO MARCO !</span></>}</h1><p className="lobby-tagline">Deux rivaux. Une bouteille. À toi de choisir.</p></div>
+              <div className="lobby-scene" aria-label="MC Pao et Marco Mouly, les deux héros de la Riviera">
                 <div className="lobby-sun"/><div className="lobby-coast"/>
                 <div className="mission-ticket"><small>LA MISSION</small><b>8 000 €</b><span>SAUVE LA BOUTEILLE</span></div>
-                <CharacterPortrait kind="pao" costume={costume} className="lobby-pao"/><span className="lobby-vs">VS</span><CharacterPortrait kind="marco" className="lobby-marco"/>
+                <CharacterPortrait kind="pao" costume={costume} className={`lobby-pao ${character === 'pao' ? 'hero-selected' : ''}`}/><span className="lobby-vs">VS</span><CharacterPortrait kind="marco" className={`lobby-marco ${character === 'marco' ? 'hero-selected' : ''}`}/>
                 <div className="lobby-pier"/>
-                <span className="lobby-route">STOMP. TURBO. YACHT. LAMBO.</span>
+                <span className="lobby-route" data-testid="story-route">{storyRoute.name.toLocaleUpperCase('fr-FR')}</span>
               </div>
             </section>
             <section className="lobby-panel">
-              <div className="outfit-section"><div className="lobby-section-label"><span>01 / CHOISIS TON STYLE</span><span>{activeCostumeMeta.shortLabel}</span></div>
-                <div className="outfit-options" role="group" aria-label="Tenue de MC Pao">
-                  {COSTUME_OPTIONS.map(c=><button key={c.id} data-testid={`outfit-${c.id}`} className={costume===c.id?'selected':''} aria-pressed={costume===c.id} onClick={()=>setCostume(c.id)}><CharacterPortrait kind="pao" costume={c.id} className="outfit-avatar"/><span>{c.id==='classic_white'?'CLASSIC WHITE':c.id==='monaco_gold'?'MONACO GOLD':'BLACK VIP'}</span><i>{costume===c.id?'✓':'+'}</i></button>)}
+              <div className="character-section">
+                <div className="lobby-section-label"><span>01 / CHOISIS TON PERSONNAGE</span><span>2 HÉROS</span></div>
+                <div className="character-options" role="group" aria-label="Personnage principal">
+                  {(Object.values(CHARACTERS)).map(c => <button type="button" key={c.id} data-testid={`character-${c.id}`} aria-pressed={character === c.id} className={`character-card ${character === c.id ? 'selected' : ''}`} onClick={() => setCharacter(c.id)}>
+                    <CharacterPortrait kind={c.id} costume={costume} className="character-avatar"/>
+                    <span className="character-card-copy"><strong>{c.shortName}</strong><small>{c.subtitle}</small></span><i aria-hidden="true">{character === c.id ? '✓' : '+'}</i>
+                  </button>)}
                 </div>
+                <p className="character-fairness">Même vitesse · mêmes sauts · 3 cœurs · mêmes points</p>
+              </div>
+              <div className="outfit-section"><div className="lobby-section-label"><span>02 / LA SIGNATURE</span><span>{character === 'marco' ? 'GRAND CRU' : activeCostumeMeta.shortLabel}</span></div>
+                {character === 'pao' ? <div className="outfit-options" role="group" aria-label="Tenue de MC Pao">
+                  {COSTUME_OPTIONS.map(c=><button key={c.id} data-testid={`outfit-${c.id}`} className={costume===c.id?'selected':''} aria-pressed={costume===c.id} onClick={()=>setCostume(c.id)}><CharacterPortrait kind="pao" costume={c.id} className="outfit-avatar"/><span>{c.id==='classic_white'?'CLASSIC WHITE':c.id==='monaco_gold'?'MONACO GOLD':'BLACK VIP'}</span><i>{costume===c.id?'✓':'+'}</i></button>)}
+                </div> : <div className="marco-signature" data-testid="marco-signature"><span className="signature-seal" aria-hidden="true">M</span><p><strong>ROBE DE SOIE · BRODERIES OR</strong><span>Terrasses, caves et dégustation privée.</span></p><span className="signature-check" aria-hidden="true">✓</span></div>}
               </div>
               <div className="lobby-scores" data-testid="intro-leaderboard">
-                <div className="lobby-section-label"><span>02 / CLASSEMENT RIVIERA</span><button data-testid="title-leaderboard-btn" onClick={()=>setLeaderboardOpen(true)}>TOUT VOIR ↗</button></div>
+                <div className="lobby-section-label"><span>03 / CLASSEMENT RIVIERA</span><button data-testid="title-leaderboard-btn" onClick={()=>setLeaderboardOpen(true)}>TOUT VOIR ↗</button></div>
                 <div className="lobby-records">
                   {leaderboardEntries.filter(e=>e.mode==='story').slice(0,3).map((entry,i)=><div className="lobby-record" key={entry.id}><span className="record-rank">0{i+1}</span><span className="record-player">{getCountryFlag(entry.country)} {entry.playerName.replace('OFFICIEL','DÉMO')}<small>{entry.id.startsWith('seed_')?'DÉFI DÉMO':`JOUEUR · COMBO ×${entry.maxCombo}`}</small></span><strong>{entry.score.toLocaleString('fr-FR')}<small> €</small></strong></div>)}
                 </div>
                 <p className="lobby-challenge">La prochaine ligne, c’est la tienne. <span>À toi de jouer.</span></p>
               </div>
-              <div className="lobby-play">{isTouchDevice && <MobileControlPicker mode={mobileControlMode} onChange={setMobileControlMode}/>}<button type="button" data-start="true" disabled={!art.ready} className="lobby-start" onClick={startStandardGame}><span>{art.ready?'JOUER':`CHARGEMENT ${Math.round(art.loaded/art.total*100)} %`}</span><b>→</b></button><p>{!isTouchDevice?'← → AVANCER · ESPACE SAUTER ×2 · ↓ SLAM':mobileControlMode==='gestures'?'GLISSE ← → · ↑ SAUT · ↓ SLAM':mobileControlMode==='joystick'?'JOYSTICK ← → · ↑ SAUT · ↓ SLAM':'◀ ▶ · SAUT ×2 · SLAM'}</p></div>
-              <nav className="lobby-extras"><button data-testid="title-boss-btn" disabled={!art.ready} onClick={startBossArena}>DÉFI DON MARCO</button><button onClick={()=>setTitleExtras(v=>!v)} aria-expanded={titleExtras}>EXTRAS {titleExtras?'−':'+'}</button>{titleExtras&&<div className="lobby-extra-menu"><button data-testid="title-costume-btn" onClick={handleCycleCostume}>CHANGER DE TENUE</button><button data-testid="title-editor-btn" onClick={openLevelEditor}>ATELIER DE NIVEAUX</button></div>}</nav>
+              <div className="lobby-play">{isTouchDevice && <MobileControlPicker mode={mobileControlMode} onChange={setMobileControlMode}/>}<button type="button" data-start="true" disabled={!art.ready} className="lobby-start" onClick={startStandardGame}><span>{art.ready?`JOUER · ${character === 'marco' ? 'MARCO' : 'PAO'}`:`CHARGEMENT ${Math.round(art.loaded/art.total*100)} %`}</span><b>→</b></button><p>{!isTouchDevice?'← → AVANCER · ESPACE SAUTER ×2 · ↓ SLAM':mobileControlMode==='gestures'?'GLISSE ← → · ↑ SAUT · ↓ SLAM':mobileControlMode==='joystick'?'JOYSTICK ← → · ↑ SAUT · ↓ SLAM':'◀ ▶ · SAUT ×2 · SLAM'}</p></div>
+              <nav className="lobby-extras"><button data-testid="title-boss-btn" disabled={!art.ready} onClick={startBossArena}>DÉFI {hero.bossName}</button><button onClick={()=>setTitleExtras(v=>!v)} aria-expanded={titleExtras}>EXTRAS {titleExtras?'−':'+'}</button>{titleExtras&&<div className="lobby-extra-menu">{character === 'pao' && <button data-testid="title-costume-btn" onClick={handleCycleCostume}>CHANGER DE TENUE</button>}<button data-testid="title-editor-btn" onClick={openLevelEditor}>ATELIER DE NIVEAUX</button></div>}</nav>
             </section>
           </div>
           <footer className="lobby-footer"><span>LA GUERRE DES BOUTEILLES</span><span>Scores en euros fictifs · Fan game non officiel</span></footer>
         </div>
       )}
-      {!art.ready && art.errors.length>0 && <div className="art-error" role="alert"><strong>La Riviera n’a pas fini de charger.</strong><p>Vérifie ta connexion, puis réessaie.</p><button onClick={()=>location.reload()}>RECHARGER</button></div>}
+      {!art.ready && art.errors.length>0 && <div className="art-error" role="alert"><strong>{character==='marco'&&getArtStatus().ready?'L’équipe Grand Cru n’a pas fini de charger.':'La Riviera n’a pas fini de charger.'}</strong><p>Vérifie ta connexion, puis réessaie.</p><button onClick={()=>{if(getArtStatus().ready){preloadMarcoArtwork(true);preloadPaoRivalArtwork(true);setArt(selectedArtStatus(character));}else location.reload();}}>RECHARGER</button>{character==='marco'&&getArtStatus().ready&&<button onClick={()=>{setCharacter('pao');setGameState('title');}}>CHOISIR MC PAO</button>}</div>}
 
       {/* ====================================================================
           4. PAUSE & SETTINGS MODAL
@@ -932,13 +962,13 @@ export const GameShell: React.FC = () => {
         <div role="dialog" aria-modal="true" aria-labelledby="pause-modal-title" className="leaderboard-overlay pause-overlay">
           <div className="pause-card">
             <header><h2 id="pause-modal-title">PAUSE VIP</h2><button aria-label="ON Y RETOURNE" onClick={resumeGame}>ON Y RETOURNE →</button></header>
-            <div className="pause-stats"><span><b>{hud.score.toLocaleString('fr-FR')} €</b> LA CAISSE</span><span><b>{hud.chains}</b> LIASSES</span><span><b>{hud.marcosStomped}</b> MARCOS</span></div>
-            <div className="pause-utilities"><button onClick={toggleMute}>{muted?'ACTIVER LE SON':'COUPER LE SON'}</button><button onClick={()=>void toggleFullscreen()}>PLEIN ÉCRAN ↗</button><button onClick={()=>setLeaderboardOpen(true)}>LES SCORES</button><button onClick={startBossArena}>DÉFI DON MARCO</button></div>
+            <div className="pause-stats"><span><b>{hud.score.toLocaleString('fr-FR')} €</b> LA CAISSE</span><span><b>{hud.chains}</b> LIASSES</span><span><b>{hud.marcosStomped}</b> RIVAUX</span></div>
+            <div className="pause-utilities"><button onClick={toggleMute}>{muted?'ACTIVER LE SON':'COUPER LE SON'}</button><button onClick={()=>void toggleFullscreen()}>PLEIN ÉCRAN ↗</button><button onClick={()=>setLeaderboardOpen(true)}>LES SCORES</button><button onClick={startBossArena}>DÉFI {hero.bossName}</button></div>
             <div className="pause-settings">
               <div><label htmlFor="sfx-volume-slider">Effets sonores ({sfxVol}%)</label><input id="sfx-volume-slider" type="range" min={0} max={100} value={sfxVol} onChange={e=>setSfxVol(Number(e.target.value))}/></div>
               <div><span>Musique Riviera</span><button onClick={()=>setMusicEnabled(v=>!v)}>{musicEnabled?'OUI':'NON'}</button></div>
               <div><span>Narrateur français</span><button onClick={()=>setVoiceEnabled(v=>!v)}>{voiceEnabled?'ACTIVÉ':'DÉSACTIVÉ'}</button></div>
-              <div><span>Tenue [C]</span><button onClick={handleCycleCostume}>{activeCostumeMeta.shortLabel}</button></div>
+              <div><span>{hero.name} · tenue{character === 'pao' ? ' [C]' : ''}</span>{character === 'pao' ? <button onClick={handleCycleCostume}>{activeCostumeMeta.shortLabel}</button> : <span className="pause-signature">GRAND CRU</span>}</div>
               <div><span>Lumière de la côte</span><button onClick={cycleWeather}>{WEATHER_LABELS[weatherMode]}</button></div>
               <div><span>Commandes tactiles</span><button onClick={()=>setShowTouchControls(v=>!v)}>{showTouchControls?'VISIBLES':'MASQUÉES'}</button></div>
               {isTouchDevice && <div className="pause-control-setting"><span>Mode de commandes</span><MobileControlPicker mode={mobileControlMode} onChange={setMobileControlMode}/></div>}
@@ -965,12 +995,12 @@ export const GameShell: React.FC = () => {
                 finalStats.victory ? 'text-[#4ade80]' : 'text-[#f87171]'
               }`}
             >
-              {finalStats.victory ? 'CIAO MARCO !' : 'ON REMET ÇA ?'}
+              {finalStats.victory ? hero.title : 'ON REMET ÇA ?'}
             </h2>
             <p className="text-xs text-[#ebbf94] mt-2">
               {finalStats.victory
-                ? 'La bouteille est sauvée. Don Marco est au tapis. Départ en Lambo dorée !'
-                : `Tu as parcouru ${finalStats.progressPct} % de la côte. ${hud.checkpoint ? "Ton point VIP t’attend avant Don Marco." : "La bouteille t’attend toujours."}`}
+                ? `La bouteille est sauvée. ${hero.bossName} est au tapis. Départ en Lambo dorée !`
+                : `Tu as parcouru ${finalStats.progressPct} % de la côte. ${hud.checkpoint ? `Ton point VIP t’attend avant ${hero.bossName}.` : "La bouteille t’attend toujours."}`}
             </p>
 
             <div className="grid grid-cols-3 gap-2.5 my-4 p-3 rounded-xl bg-[#180c06] border border-[#5c3822]">
@@ -984,7 +1014,7 @@ export const GameShell: React.FC = () => {
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase text-[#ebbf94]">
-                  MARCOS ÉCRASÉS
+                  RIVAUX BATTUS
                 </div>
                 <div className="font-mono-tabular text-base sm:text-lg font-extrabold text-[#38bdf8] mt-0.5">
                   {finalStats.marcosStomped} / {finalStats.totalMarcos}
@@ -1024,7 +1054,7 @@ export const GameShell: React.FC = () => {
                   data-testid="player-name-input"
                   aria-label="Your Worldwide Player Pseudo"
                   maxLength={16}
-                  placeholder="MC PAO 92"
+                  placeholder={character === 'marco' ? 'MARCO 92' : 'MC PAO 92'}
                   value={playerNameInput}
                   onChange={(e) => setPlayerNameInput(e.target.value)}
                   className="flex-1 min-w-[120px] px-2.5 py-1.5 rounded-lg bg-[#24130b] border border-[#e5b586] text-xs font-extrabold text-white uppercase"
@@ -1067,7 +1097,7 @@ export const GameShell: React.FC = () => {
 
             <button className="share-result" onClick={()=>void shareResult()}>PARTAGER MON SCORE ↗</button>
             {shareStatus && <p className="share-status" role="status">{shareStatus}</p>}
-            <p className="result-credit">Un fan game pour MC Pao · Édition Riviera</p>
+            <p className="result-credit">MC Pao × Marco Mouly · Fan game Riviera</p>
             <div className="flex flex-col gap-2">
               <button
                 type="button"
@@ -1120,10 +1150,10 @@ export const GameShell: React.FC = () => {
         }}>
           <div className="leaderboard-card">
             <header><div><p>LES RECORDS À BATTRE</p><h2 id="world-leaderboard-title">CLASSEMENT<br/>RIVIERA</h2></div><button data-testid="leaderboard-close-btn" aria-label="Fermer le classement" onClick={()=>setLeaderboardOpen(false)}>×</button></header>
-            <nav aria-label="Mode de jeu">{([{id:'all',label:'TOUS'},{id:'story',label:'LA RIVIERA'},{id:'boss',label:'DON MARCO'},{id:'custom',label:'ATELIER'}] as const).map(tab=><button key={tab.id} data-testid={`leaderboard-tab-${tab.id}`} aria-pressed={leaderboardTab===tab.id} onClick={()=>setLeaderboardTab(tab.id)}>{tab.label}</button>)}</nav>
+            <nav aria-label="Mode de jeu">{([{id:'all',label:'TOUS'},{id:'story',label:'LA RIVIERA'},{id:'boss',label:'DUELS VIP'},{id:'custom',label:'ATELIER'}] as const).map(tab=><button key={tab.id} data-testid={`leaderboard-tab-${tab.id}`} aria-pressed={leaderboardTab===tab.id} onClick={()=>setLeaderboardTab(tab.id)}>{tab.label}</button>)}</nav>
             {scoreSubmittedBanner&&<p className="leaderboard-banner" data-testid="leaderboard-submitted-alert" role="status">{scoreSubmittedBanner}</p>}
             <div className="leaderboard-list">
-              {visibleLeaderboardEntries.map((entry,i)=><div className={`lobby-record ${entry.id===lastSubmittedId?'record-highlight':''}`} key={entry.id} data-testid={`leaderboard-row-${i+1}`}><span className="record-rank">{String(i+1).padStart(2,'0')}</span><span className="record-player">{getCountryFlag(entry.country)} {entry.playerName}<small>{entry.id.startsWith('seed_')?'DÉFI DÉMO':`${entry.mode==='boss'?'BOSS':entry.mode==='custom'?'ATELIER':'RIVIERA'} · ${entry.marcosStomped} MARCOS · COMBO ×${entry.maxCombo}`}</small></span><strong>{entry.score.toLocaleString('fr-FR')}<small> €</small></strong></div>)}
+              {visibleLeaderboardEntries.map((entry,i)=><div className={`lobby-record ${entry.id===lastSubmittedId?'record-highlight':''}`} key={entry.id} data-testid={`leaderboard-row-${i+1}`}><span className="record-rank">{String(i+1).padStart(2,'0')}</span><span className="record-player">{getCountryFlag(entry.country)} {entry.playerName}<small>{entry.id.startsWith('seed_')?'DÉFI DÉMO':`${entry.mode==='boss'?'BOSS':entry.mode==='custom'?'ATELIER':'RIVIERA'} · ${entry.marcosStomped} RIVAUX · COMBO ×${entry.maxCombo}`}</small></span><strong>{entry.score.toLocaleString('fr-FR')}<small> €</small></strong></div>)}
               {visibleLeaderboardEntries.length===0&&<p className="leaderboard-empty">Le premier record de ce mode t’attend.</p>}
             </div>
             <footer><p>Euros fictifs · Fan game non officiel<br/>Publie ton record après une partie.</p><button onClick={()=>setLeaderboardOpen(false)}>FERMER →</button></footer>

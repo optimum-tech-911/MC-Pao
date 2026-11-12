@@ -10,13 +10,18 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx --test src/game/rules.test.ts",
+    "test": "node --import tsx --test src/game/rules.test.ts src/game/storyRoutes.test.ts",
     "test:game": "node scripts/playtest-story.mjs",
     "test:ui": "node scripts/playtest-ui.mjs",
     "art:pack": "node scripts/prepare-art.mjs",
     "test:mobile": "node scripts/playtest-story.mjs --mobile",
     "test:phones": "node scripts/playtest-mobile.mjs",
-    "test:production": "node scripts/playtest-production.mjs"
+    "test:production": "node scripts/playtest-production.mjs",
+    "test:characters": "node scripts/playtest-characters.mjs",
+    "test:game:marco": "node scripts/playtest-story.mjs --marco",
+    "test:marco-actions": "node scripts/playtest-marco-actions.mjs",
+    "test:marco-upper": "node scripts/playtest-marco-actions.mjs --upper-route",
+    "test:pao-rivals": "node scripts/playtest-pao-rivals.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

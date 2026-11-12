@@ -23,13 +23,19 @@ import {
 } from '../game/rules';
 import {
   buildLevelFromCustomPayload,
-  buildMediterraneanLevel,
   createInitialPlayer,
   type LevelData,
   STORY_LEAD_IN,
 } from '../game/level';
 import { getSpriteBank, type SpriteBank } from '../game/sprites';
+import { characterMeta, rivalCharacter, type CharacterId } from '../game/characters';
+import { getPlayerSpriteSet, getRivalSpriteSet, getRivalBossSprites } from '../game/heroSprites';
 import { soundFX } from '../game/audio';
+import { buildStoryLevel, getStoryRoute, MARCO_ROUTE_LANDMARKS } from '../game/storyRoutes';
+import { selectPlayerVisual } from '../game/playerVisual';
+import { selectEnemyVisual, selectBossVisual } from '../game/enemyVisual';
+import { getPaoRivalArtStatus } from '../game/approvedPaoRivals';
+import { drawRouteLandmark } from '../game/routeArt';
 
 export interface HudSnapshot {
   checkpoint?: boolean;
@@ -71,6 +77,7 @@ interface GameCanvasProps {
   retrySignal?: number;
   weatherMode: WeatherMode;
   costume: PaoCostume;
+  character: CharacterId;
   customLevel: CustomLevelPayload | null;
   spawnAtBoss: boolean;
   editorTool: CustomLevelItem['kind'] | 'erase';
@@ -130,6 +137,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   retrySignal = 0,
   weatherMode,
   costume,
+  character,
   customLevel,
   spawnAtBoss,
   editorTool,
@@ -144,6 +152,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const gameStateRef = useRef<GameState>(gameState);
   const weatherModeRef = useRef<WeatherMode>(weatherMode);
   const costumeRef = useRef<PaoCostume>(costume);
+  const characterRef = useRef<CharacterId>(character);
   const customLevelRef = useRef<CustomLevelPayload | null>(customLevel);
   const spawnAtBossRef = useRef<boolean>(spawnAtBoss);
   const editorToolRef = useRef<CustomLevelItem['kind'] | 'erase'>(editorTool);
@@ -164,6 +173,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   useEffect(() => {
     costumeRef.current = costume;
   }, [costume]);
+
+  useEffect(() => {
+    characterRef.current = character;
+  }, [character]);
 
   useEffect(() => {
     customLevelRef.current = customLevel;
@@ -228,6 +241,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     resizeGame();
     window.addEventListener('resize', resizeGame);
     const sprites: SpriteBank = getSpriteBank();
+    const heroMeta = () => characterMeta(characterRef.current);
+    // Shared rules and rewards; each hero has an authored Riviera route.
+    const rivalCallout = (text: string) => characterRef.current === 'pao' ? text : text
+      .replace(/DON MARCO/g, 'MC PAO VIP').replace(/Don Marco/g, 'MC Pao VIP')
+      .replace(/MARCOS/g, 'PAOS').replace(/Marcos/g, 'Paos')
+      .replace(/MARCO/g, 'PAO').replace(/Marco/g, 'Pao');
+    const speakCallout = (text: string) => soundFX.speakFrenchCallout(rivalCallout(text));
 
     let highScore = 0;
     try {
@@ -241,7 +261,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (customLevelRef.current) {
         return buildLevelFromCustomPayload(customLevelRef.current);
       }
-      return buildMediterraneanLevel();
+      return buildStoryLevel(characterRef.current);
     };
 
     let level: LevelData = createActiveLevel();
@@ -258,6 +278,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let lastQuoteAt = -10;
     let downWasHeld = false;
     let stompPoseTimer = 0;
+    let victoryPoseTimer = 0;
+    const activePlayerVisual = (bank = getPlayerSpriteSet(sprites, characterRef.current, player.costume)) =>
+      selectPlayerVisual(player, bank, worldTime, stompPoseTimer, {
+        carEntry: player.inGoldenLambo && lamboGetawayTimer > 2.05,
+        victory: victoryPoseTimer > 0 && player.grounded && Math.abs(player.vx) < 45 && !player.swimming,
+      });
     let checkpointData: { level: LevelData; x: number; y: number; score: number; chains: number; marcosStomped: number; maxCombo: number } | null = null;
 
     // Pre-allocate Zero-GC Particle Pool
@@ -345,6 +371,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       y: number,
       color: string = '#fef08a'
     ) => {
+      text = rivalCallout(text);
+      subText = rivalCallout(subText);
+      const actionLabels = ['DOUBLE SAUT !', 'COUP DE CHAÎNE !', 'SLAM GRAND CRU !', '📸 VIP FLEX !', 'TOAST GRAND CRU !'];
+      if (actionLabels.includes(text)) {
+        for (const popup of popups) if (actionLabels.includes(popup.text)) popup.active = false;
+      }
       if (text === 'CAISSE DE BILLETS !') { text = '+200 €'; subText = ''; }
       if (text === 'ESPRESSO CORSE !') { text = '+1 ♥'; subText = ''; }
       if (/^\+\d+ €$/.test(text)) {
@@ -352,7 +384,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (existing) { existing.text = `+${parseInt(existing.text.slice(1)) + parseInt(text.slice(1))} €`; existing.life = .8; existing.x = x; existing.y = y - 15; return; }
       }
       if (text.length > 18) {
-        const important = /SONNÉ|BATS DON|SAUVÉE|POINT VIP|BOUCLIER/.test(text);
+        const important = /SONNÉ|BATS |SAUVÉE|POINT VIP|BOUCLIER/.test(text);
         if (!important && worldTime - lastQuoteAt < 1.8) return;
         for (const p of popups) if (p.text.length > 18) p.active = false;
         lastQuoteAt = worldTime;
@@ -423,14 +455,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         : level.boss.defeated ? 'Bouteille sauvée ! Rejoins la Lambo dorée.'
         : bossActive ? (level.boss.state === 'vulnerable' ? 'Maintenant ! Saute sur sa tête.' : 'Esquive son attaque. Attends qu’il soit sonné.')
         : x < 70 ? (window.matchMedia('(pointer: coarse)').matches ? 'Maintiens → pour avancer · SAUT pour sauter' : '← → pour avancer · Espace pour sauter')
-        : x < 280 && player.marcosStomped === 0 ? 'Saute sur la tête de Marco !'
-        : x < 540 ? 'La montre bleue te rend invincible pendant 8 secondes.'
-        : x < 1052 ? 'Deux sauts pour le yacht. Dans l’eau, saute pour ressortir !'
-        : x < 2048 ? 'Enchaîne les Marcos pour multiplier ton score.'
-        : x < 2816 ? 'Don Marco t’attend. Le point VIP sauvegarde ton parcours.' : '';
-      const zone = x < 540 ? '01 / LA PROMENADE' : x < 1412 ? '02 / LE PORT' : x < 2536 ? '03 / RIVIERA TURBO' : '04 / LE DERNIER MARCO';
+        : x < 280 && player.marcosStomped === 0 ? `Saute sur la tête de ${heroMeta().rivalName} !`
+        : x < 540 ? (characterRef.current === 'marco' ? 'Les marches mènent à la terrasse Grand Cru. La montre bleue donne le turbo !' : 'La montre bleue te rend invincible pendant 8 secondes.')
+        : x < 1052 ? (characterRef.current === 'marco' ? 'Grand cru à bord ! Deux sauts pour le yacht, ou nage jusqu’au pont.' : 'Deux sauts pour le yacht. Dans l’eau, saute pour ressortir !')
+        : x < 2048 ? (characterRef.current === 'marco' ? 'L’auvent mène au balcon de la cave. Le grand cru se mérite !' : 'Enchaîne les Marcos pour multiplier ton score.')
+        : x < 2816 ? `${heroMeta().bossName} t’attend. Le point VIP sauvegarde ton parcours.` : '';
+      const route = getStoryRoute(characterRef.current);
+      const zoneIndex = x < 540 ? 0 : x < 1412 ? 1 : x < 2536 ? 2 : 3;
+      const zone = `${String(zoneIndex + 1).padStart(2, '0')} / ${route.zones[zoneIndex].toLocaleUpperCase('fr-FR')}`;
       const calloutActive=popups.some(p=>p.active&&p.text.length>18);
-      const key = `${calloutActive}:${player.score}:${player.chains}:${player.combo}:${player.hp}:${scooterSec}:${player.marcosStomped}:${progressPct}:${victory}:${bossActive}:${level.boss.hp}:${level.boss.phase}:${level.boss.state}:${!!checkpointData}:${hint}`;
+      const key = `${characterRef.current}:${calloutActive}:${player.score}:${player.chains}:${player.combo}:${player.hp}:${scooterSec}:${player.marcosStomped}:${progressPct}:${victory}:${bossActive}:${level.boss.hp}:${level.boss.phase}:${level.boss.state}:${!!checkpointData}:${hint}`;
       if (force || key !== lastReportedKey) {
         lastReportedKey = key;
         onHudUpdateRef.current({
@@ -471,7 +505,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       trauma = 0.45;
       player.score += 10000;
       soundFX.playLamboGetaway();
-      soundFX.speakFrenchCallout('En route dans la Lamborghini en or vingt-quatre carats !');
+      speakCallout('En route dans la Lamborghini en or vingt-quatre carats !');
       spawnPopup(
         'LAMBORGHINI EN OR 24K !',
         '+10 000 € · V12 DIRECTION MONACO !',
@@ -482,7 +516,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
 
     const resetGame = () => {
-      checkpointData = null; lastQuoteAt = -10; downWasHeld = false; stompPoseTimer = 0;
+      checkpointData = null; lastQuoteAt = -10; downWasHeld = false; stompPoseTimer = 0; victoryPoseTimer = 0;
       level = createActiveLevel();
       const params =
         typeof window !== 'undefined'
@@ -646,6 +680,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const dt = clampDt(rawDt);
       worldTime += dt;
       stompPoseTimer = Math.max(0, stompPoseTimer - dt);
+      victoryPoseTimer = Math.max(0, victoryPoseTimer - dt);
 
       for (const p of particles) {
         if (!p.active) continue;
@@ -837,6 +872,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       if (defeatDelayTimer > 0) {
+        if (characterRef.current === 'marco') {
+          const previousBottom = player.y + player.h;
+          const wasGrounded = player.grounded;
+          player.vx = 0;
+          player.vy = Math.min(680, player.vy + PHYSICS.GRAVITY * dt);
+          player.y += player.vy * dt;
+          resolvePlayerPlatformAABB(player, previousBottom, wasGrounded, level.platforms);
+        }
         defeatDelayTimer -= dt;
         if (defeatDelayTimer <= 0) {
           syncHud(true, false);
@@ -1015,14 +1058,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           player.scaleX = 0.78;
           player.scaleY = 1.28;
           soundFX.playJump();
-          spawnPopup('COUP DE CHAÎNE !', '', player.x + 20, player.y, '#38bdf8');
+          spawnPopup(characterRef.current === 'marco' ? 'SLAM GRAND CRU !' : 'COUP DE CHAÎNE !', '', player.x + 20, player.y, '#38bdf8');
         } else if (downJustPressed && player.grounded) {
           // Pressing Down / Pose while grounded triggers MC Pao's Camera Look & Sunglasses Wink Flex!
           player.vipPoseTimer = 1.6;
           player.animState = 'vip_pose';
           player.scaleX = 1.12;
           player.scaleY = 0.92;
-          spawnPopup('📸 VIP FLEX !', 'CIAO BELLA !', player.x + 20, player.y - 8, '#facc15');
+          spawnPopup(characterRef.current === 'marco' ? 'TOAST GRAND CRU !' : '📸 VIP FLEX !', characterRef.current === 'marco' ? 'SANTÉ, LA RIVIERA !' : 'CIAO BELLA !', player.x + 20, player.y - 8, '#facc15');
         }
 
         const gravMult = player.vy > 0 ? PHYSICS.FALL_GRAVITY_MULT : 1.0;
@@ -1285,7 +1328,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             player.score += 1500;
             player.chains += 1;
             soundFX.playYachtVipCheer();
-            soundFX.speakFrenchCallout('La belle vie sur le yacht à Saint-Tropez !');
+            speakCallout('La belle vie sur le yacht à Saint-Tropez !');
             spawnPopup(
               `📸 YACHT "${yacht.name}" · CIAO BELLA !`,
               '+1 500 € · VIP CAMERA FLEX !',
@@ -1347,7 +1390,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             player.scooterTimer = 8.5;
             player.score += 1000;
             soundFX.playScooterPickup();
-            soundFX.speakFrenchCallout('La Richard Mille bleue mon gars !');
+            speakCallout('La Richard Mille bleue mon gars !');
             spawnPopup(
               'LA RICHARD MILLE BLEUE !',
               '8 SECONDES DE TURBO',
@@ -1428,7 +1471,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           hitstopTimer = PHYSICS.HITSTOP_STOMP;
           trauma = Math.min(1, trauma + 0.42);
           soundFX.playStomp(player.combo);
-          soundFX.speakFrenchCallout(callout);
+          speakCallout(callout);
 
           spawnRadialComicImpact(enemy.x + enemy.w * 0.5, enemy.y + 4);
 
@@ -1646,11 +1689,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       hitstopTimer = PHYSICS.HITSTOP_STOMP * 1.3;
       trauma = Math.min(1, trauma + 0.65);
       soundFX.playStomp(player.combo + 2);
-      soundFX.speakFrenchCallout(calloutText);
+      speakCallout(calloutText);
       spawnRadialComicImpact(boss.x + boss.w * 0.5, boss.y + 10);
 
       if (boss.hp <= 0) {
         boss.defeated = true;
+        victoryPoseTimer = 1.6;
         boss.state = 'defeated';
         player.score += 8000;
         player.marcosStomped += 1;
@@ -1769,7 +1813,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       spawnPopup('AÏE!', "MARCO T'A EU!", player.x + 18, player.y - 8, '#fca5a5');
 
       if (player.hp <= 0) {
-        defeatDelayTimer = 0.45;
+        if (characterRef.current === 'marco') {
+          player.vx = 0; player.vy = 0; player.scaleX = 1; player.scaleY = 1;
+          for (const ghost of ghosts) ghost.active = false;
+        }
+        defeatDelayTimer = characterRef.current === 'marco' ? .65 : .45;
       }
       syncHud(true, false);
     }
@@ -2149,11 +2197,28 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillRect(hx + 2, hy + 5, 1, 1);
       }
 
+      if (characterRef.current === 'marco' && !customLevelRef.current) {
+        for (const landmark of MARCO_ROUTE_LANDMARKS) {
+          if (landmark.x + 220 < camX || landmark.x - 40 > camX + VIEW_W) continue;
+          drawRouteLandmark(ctx, landmark, sprites.props.wineBottle);
+        }
+      }
+
       // 4B. Render Platforms
       for (const plat of level.platforms) {
         if (plat.x + plat.w < camX - 60 || plat.x > camX + VIEW_W + 60) continue;
         // Skip stone tile rendering for invisible Super-Yacht deck collision surfaces
-        if (plat.isYachtDeck) continue;
+        if (plat.isYachtDeck) {
+          if (characterRef.current === 'marco' && !customLevelRef.current && plat.h === 12) {
+            ctx.fillStyle = '#423435'; ctx.fillRect(plat.x, plat.y, plat.w, 8);
+            ctx.fillStyle = '#cfad72'; ctx.fillRect(plat.x, plat.y, plat.w, 2);
+            ctx.fillStyle = '#976344'; ctx.fillRect(plat.x + 2, plat.y + 3, plat.w - 4, 3);
+            for (let x = plat.x + 6; x < plat.x + plat.w; x += 18) {
+              ctx.fillStyle = '#d8b879'; ctx.fillRect(x, plat.y + 6, 2, 29);
+            }
+          }
+          continue;
+        }
 
         if (plat.hasVillaLeft) {
           drawForegroundVilla(plat.x, plat.y);
@@ -2221,7 +2286,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const bob = Math.round(Math.sin(worldTime * 4) * 2);
           ctx.drawImage(sprites.props.scooterPickup[watchFrameIdx], px0, py0 - 8 + bob);
         } else if (deco.type === 'golden_lambo') {
-          const lamboFrame = player.inGoldenLambo ? 1 : 0;
+          const lamboFrame = player.inGoldenLambo && !(characterRef.current === 'marco' && lamboGetawayTimer > 2.05) ? 1 : 0;
           ctx.drawImage(
             sprites.props.goldenLambo[lamboFrame],
             Math.round(drawDecoX),
@@ -2306,26 +2371,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      // 4F. Render Mini Marco Mouly Enemies (4-Frame Articulated Waddle + Expressive Tilt!)
+      // 4F. Render the selected hero's comic rivals with action-specific poses.
       for (const enemy of level.enemies) {
         if (enemy.state === 'squished' && enemy.stateTimer <= 0) continue;
         if (enemy.x + enemy.w < camX - 20 || enemy.x > camX + VIEW_W + 20) continue;
 
-        const archBank = sprites.marco[enemy.archetype];
-        let sprite: HTMLCanvasElement;
-        let drawY = enemy.y;
-        let waddleTilt = 0;
-
-        if (enemy.state === 'squished') {
-          sprite = archBank.squished;
-          drawY = enemy.y + enemy.h - 22;
-        } else if (enemy.state === 'windup') {
-          sprite = archBank.windup;
-        } else {
-          const walkIdx = Math.floor(enemy.walkDist * 0.14) % archBank.walk.length;
-          sprite = archBank.walk[walkIdx];
-          waddleTilt = Math.sin(enemy.walkDist * 0.22) * 0.055;
-        }
+        if (characterRef.current === 'marco' && !getPaoRivalArtStatus().ready) continue;
+        const visual = selectEnemyVisual(enemy, getRivalSpriteSet(sprites, characterRef.current, player.costume));
+        const sprite = visual.sprite;
+        const drawY = enemy.state === 'squished' ? enemy.y + enemy.h - sprite.height : enemy.y;
+        const waddleTilt = visual.state === 'walk' ? Math.sin(enemy.walkDist * .22) * (visual.source === 'approved-mini-pao-v1' ? .018 : .055) : 0;
 
         if (enemy.state === 'windup') {
           ctx.fillStyle = '#120b07';
@@ -2336,7 +2391,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.fillRect(Math.round(enemy.x + 14), Math.round(enemy.y - 6), 6, 2);
         }
 
-        // Grounded contact shadow under Marco's feet
+        // Grounded contact shadow under the rival's feet.
         ctx.fillStyle = 'rgba(18, 11, 7, 0.28)';
         ctx.fillRect(
           Math.round(enemy.x + 6),
@@ -2346,7 +2401,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         );
 
         ctx.save();
-        // Anchor Marco's shoes flush onto the platform surface (enemy.y + enemy.h + 1)
+        // Keep the shoes on the same surface through turns and action changes.
         const marcoFootX = Math.round(enemy.x + enemy.w * 0.5);
         const marcoFootY = Math.round(
           enemy.state === 'squished' ? drawY + sprite.height : enemy.y + enemy.h + 1
@@ -2354,7 +2409,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.translate(marcoFootX, marcoFootY);
         const enemyLandSquashX = enemy.landTimer && enemy.landTimer > 0 ? 1.18 : 1;
         const enemyLandSquashY = enemy.landTimer && enemy.landTimer > 0 ? 0.84 : 1;
-        const flipX = enemy.facing === -1 && enemy.state !== 'squished' ? -1 : 1;
+        const flipX = enemy.facing === -1 && (enemy.state !== 'squished' || visual.source === 'approved-mini-pao-v1') ? -1 : 1;
         ctx.scale(flipX * enemyLandSquashX, enemyLandSquashY);
         if (waddleTilt !== 0) {
           ctx.rotate(waddleTilt);
@@ -2367,25 +2422,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
       }
 
-      // 4F-BOSS. Render Multi-Phase Boss "Don Marco"
-      if (level.boss.active && !level.boss.defeated) {
+      // 4F-BOSS. The same approved rival becomes the larger VIP boss.
+      if (level.boss.active && !level.boss.defeated && (characterRef.current !== 'marco' || getPaoRivalArtStatus().ready)) {
         const boss = level.boss;
+        const bossSprites = getRivalBossSprites(sprites, characterRef.current, player.costume);
         if (boss.x + boss.w >= camX - 40 && boss.x <= camX + VIEW_W + 40) {
-          let bossSprite: HTMLCanvasElement;
-          const animIdx = Math.floor(worldTime * 6) % 2;
-          if (boss.state === 'vulnerable' || boss.state === 'hurt') {
-            bossSprite = sprites.boss.vulnerable[animIdx];
-          } else if (
-            boss.state === 'windup_leap' ||
-            boss.state === 'windup_charge' ||
-            boss.state === 'charging' ||
-            boss.state === 'leaping'
-          ) {
-            bossSprite = sprites.boss.charging;
-          } else {
-            const idx = Math.floor(boss.walkDist * 0.1) % 2;
-            bossSprite = sprites.boss.shielded[idx];
-          }
+          const bossSprite = selectBossVisual(boss, bossSprites, worldTime).sprite;
 
           if (boss.state === 'vulnerable') {
             ctx.fillStyle = 'rgba(74, 222, 128, 0.35)';
@@ -2452,8 +2494,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       // 4H-0. Render Sapphire Speed Afterimage Ghosts (only when not swimming or in Lambo!)
-      const activePaoBank = sprites.costumes[player.costume] || sprites.pao;
-      if (!player.swimming) {
+      const activePaoBank = getPlayerSpriteSet(sprites, characterRef.current, player.costume);
+      const heroReady = characterRef.current !== 'marco' || activePaoBank.source === 'approved-v2';
+      if (!player.swimming && heroReady && player.hp > 0) {
         for (const g of ghosts) {
           if (!g.active || player.inGoldenLambo) continue;
           const alpha = (g.life / g.maxLife) * 0.42;
@@ -2471,12 +2514,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // 4H. Render MC Pao (Costume-Aware Articulated Rig, Freestyle Swimming, VIP Camera Pose, or Inside Golden Lambo!)
       const blinkHide =
-        player.invulnTimer > 0 && Math.floor(worldTime * 18) % 2 === 0;
-      if (!blinkHide && !player.inGoldenLambo) {
+        player.hp > 0 && player.invulnTimer > 0 && Math.floor(worldTime * 18) % 2 === 0;
+      if (!blinkHide && !player.inGoldenLambo && heroReady) {
         if (player.swimming || player.animState === 'swim') {
           const speed = Math.abs(player.vx);
           const stroke = worldTime * (speed > 35 ? 7 : 3);
-          const swimSprite = activePaoBank.swim[Math.floor(stroke) % activePaoBank.swim.length];
+          const swimSprite = activePlayerVisual(activePaoBank).image;
           const centerX = Math.round(player.x + player.w * .5);
           const waterY = PHYSICS.WATER_SURFACE_Y;
           const bob = Math.sin(stroke * Math.PI / 2) * 1.2;
@@ -2506,40 +2549,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.fillRect(centerX+player.facing*39,waterY-2-Math.round(Math.abs(splash)*4),2,2);
           }
         } else {
-          let paoSprite: HTMLCanvasElement;
-          let leanRad = 0;
-          const isVipCameraPose = player.animState === 'vip_pose';
-
-          if (player.groundPounding) {
-            paoSprite = activePaoBank.groundPound;
-          } else if (stompPoseTimer > 0) {
-            paoSprite = activePaoBank.stomp;
-          } else if (player.animState === 'scooter') {
-            const idx = Math.floor(worldTime * 14) % activePaoBank.scooter.length;
-            paoSprite = activePaoBank.scooter[idx];
-            leanRad = 0.05;
-          } else if (player.animState === 'hurt') {
-            paoSprite = activePaoBank.hurt;
-          } else if (player.animState === 'jump') {
-            paoSprite =
-              player.airJumpsLeft === 0 ? activePaoBank.doubleJump : Math.abs(player.vy) < 85 ? (activePaoBank.apex ?? activePaoBank.jump) : activePaoBank.jump;
-            leanRad = Math.max(-0.08, Math.min(0.08, player.vx * 0.0003));
-          } else if (player.animState === 'stomp') {
-            paoSprite = activePaoBank.fall ?? activePaoBank.stomp;
-          } else if (player.animState === 'land') {
-            const landIdx = player.landTimer > 0.09 ? 0 : 1;
-            paoSprite = activePaoBank.land[landIdx] || activePaoBank.idle[0];
-          } else if (isVipCameraPose) {
-            const vipIdx = Math.min(activePaoBank.vipPose.length - 1, Math.floor((1.6 - Math.min(1.6, player.vipPoseTimer ?? 0)) * 6));
-            paoSprite = activePaoBank.vipPose[vipIdx] || activePaoBank.idle[0];
-          } else if (player.animState === 'run') {
-            const runIdx = Math.floor(player.walkDist * 0.07) % activePaoBank.run.length;
-            paoSprite = activePaoBank.run[runIdx];
-            leanRad = Math.min(0.05, Math.abs(player.vx) * 0.00022);
-          } else {
-            const idleIdx = Math.floor(worldTime * 3.2) % activePaoBank.idle.length;
-            paoSprite = activePaoBank.idle[idleIdx];
-          }
+          const visual = activePlayerVisual(activePaoBank);
+          const paoSprite = visual.image;
+          const leanRad = visual.lean;
+          const isVipCameraPose = visual.state === 'toast';
 
           // Subtle grounded contact shadow & Richard Mille Sky-Blue Overdrive Halo under MC Pao's sneakers!
           if (player.grounded) {
@@ -2571,7 +2584,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.translate(footX, footY);
           // When in `vip_pose`, face the camera (1) so his sunglasses star-wink & champagne glass face the viewer!
           const renderFacing = isVipCameraPose ? 1 : player.facing;
-          ctx.scale(renderFacing * player.scaleX, player.scaleY);
+          const elasticity = activePaoBank.source === 'approved-v2' ? .3 : 1;
+          ctx.scale(renderFacing * (1 + (player.scaleX - 1) * elasticity), 1 + (player.scaleY - 1) * elasticity);
           if (leanRad !== 0) {
             ctx.rotate(leanRad);
           }
@@ -2580,6 +2594,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
 
         }
+      }
+
+      if (player.inGoldenLambo && activePaoBank.carEntry && lamboGetawayTimer > 2.05) {
+        const entry = Math.max(0, Math.min(1, (2.6 - lamboGetawayTimer) / .55));
+        ctx.save();
+        ctx.globalAlpha = 1 - entry * .85;
+        ctx.translate(Math.round(lamboDriveX + 52 + entry * 25), Math.round(246 - entry * 14));
+        ctx.scale(1 - entry * .28, 1 - entry * .28);
+        ctx.drawImage(activePaoBank.carEntry, -40, -80);
+        ctx.restore();
       }
 
       // On Title Screen, render the iconic 6 white comic impact lines between Pao's sneakers and Marco's head!
@@ -2709,11 +2733,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       debugWindow.render_game_to_text = () => JSON.stringify({
         coordinates: 'World pixels; origin top-left; x right, y down',
         mode: gameStateRef.current,
+        character: characterRef.current,
+        rivalCharacter: rivalCharacter(characterRef.current),
+        rivalName: heroMeta().rivalName,
+        route: { id: customLevelRef.current ? 'custom' : getStoryRoute(characterRef.current).id, name: customLevelRef.current ? customLevelRef.current.name : getStoryRoute(characterRef.current).name },
         inputs: {touch:{...touchInputRef.current},keys:[...keysPressed]},
         viewport: { width: VIEW_W, height: VIEW_H }, checkpoint: !!checkpointData,
         cameraX: rounded(camX),
         goalX: level.goalX,
         player: {
+          character: characterRef.current,
+          name: heroMeta().name, facing: player.facing,
+          sprite: (({state,frame,source}) => ({state,frame,source}))(activePlayerVisual()),
+          w: player.w, h: player.h,
           x: rounded(player.x), y: rounded(player.y),
           vx: rounded(player.vx), vy: rounded(player.vy),
           hp: player.hp, grounded: player.grounded, swimming: player.swimming,
@@ -2723,12 +2755,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           inGoldenLambo: player.inGoldenLambo,
         },
         score: player.score, chains: player.chains,
+        callouts: popups.filter(p => p.active).map(p => p.text),
         secretBottles: level.pickups.filter(p=>p.type==='cuvee'&&p.collected).length,
         marcosStomped: player.marcosStomped, combo: player.combo,
         platforms: level.platforms.filter(visible).map(({ x, y, w, h }) => ({ x, y, w, h })),
-        enemies: level.enemies.filter(visible).map(({ id, x, y, state, archetype }) => ({ id, x: rounded(x), y: rounded(y), state, archetype })),
+        enemies: level.enemies.filter(visible).map(enemy => ({
+          id: enemy.id, x: rounded(enemy.x), y: rounded(enemy.y), w: enemy.w, h: enemy.h,
+          vx: rounded(enemy.vx), facing: enemy.facing, state: enemy.state, archetype: enemy.archetype,
+          sprite: (({state,frame,source}) => ({state,frame,source}))(selectEnemyVisual(enemy, getRivalSpriteSet(sprites, characterRef.current, player.costume))),
+        })),
         pickups: level.pickups.filter((p) => !p.collected && visible(p)).map(({ type, x, y }) => ({ type, x, y })),
-        boss: { x: level.boss.x, y: level.boss.y, w: level.boss.w, h: level.boss.h, hp: level.boss.hp, state: level.boss.state, defeated: level.boss.defeated },
+        boss: { name: heroMeta().bossName, x: level.boss.x, y: level.boss.y, w: level.boss.w, h: level.boss.h, hp: level.boss.hp, state: level.boss.state, defeated: level.boss.defeated,
+          sprite: (({state,frame,source}) => ({state,frame,source}))(selectBossVisual(level.boss, getRivalBossSprites(sprites, characterRef.current, player.costume), worldTime)),
+        },
         crates: level.crates.filter(p => !p.broken && visible(p)).map(({ x,y,w,h,loot }) => ({ x,y,w,h,loot })),
         projectiles: level.projectiles.filter(p => p.active && visible(p)).map(({ x,y,vx,vy,kind }) => ({ x,y,vx,vy,kind })),
       });
@@ -2797,7 +2836,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         data-testid="game-canvas"
         tabIndex={0}
         onPointerDown={handleCanvasPointerDown}
-        aria-label="MC Pao 16-Bit Mediterranean Platformer Canvas"
+        aria-label={`${characterMeta(character).name} · plateforme Riviera 16 bits`}
         className={`w-full h-full object-contain object-center pixelated focus:outline-none ${
           gameState === 'editor' ? 'cursor-crosshair' : ''
         }`}

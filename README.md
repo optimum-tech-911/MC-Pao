@@ -1,7 +1,17 @@
 # MC Pao · Ciao Marco !
 
-An unofficial mobile arcade platformer set on the Riviera. Recover the bottle,
-stomp Marcos, find the blue watch, cross the yachts and escape in the gold SVJ.
+An unofficial mobile arcade platformer set on the Riviera. Choose MC Pao or Marco Mouly, recover the bottle,
+face your rival, find the blue watch, cross the yachts and escape in the gold SVJ.
+Both heroes have identical speed, jumps, hitboxes, health and scoring. Your choice
+is saved on the device. Marco wears a burgundy silk robe with gold embroidery and
+carries his grand cru. His reference-based face has cropped dark hair, gray temples
+and salt-and-pepper stubble. Articulated run, jump, slam, landing, swim and toast
+frames keep the bottle attached to his wrist or secured in his sash.
+
+Marco’s **La tournée Grand Cru** adds terrace steps, a cellar gallery with a
+moving lift, and a raised private-tasting deck. The original coast and swim
+channels remain accessible. Both routes contain the same rewards and enemy
+inventory; MC Pao keeps the original route.
 
 ## Play locally
 
@@ -30,7 +40,9 @@ Some browser features, such as clipboard sharing, need HTTPS outside localhost.
   saved on the device and can also be changed in the pause menu.
 - Keyboard: **A/D** or **←/→**, **Space/W/↑** to jump, **S/↓** to slam,
   **Esc/P** to pause, **C** for outfits, **F** for fullscreen.
-- Choose Black VIP, Classic White or Monaco Gold directly in the lobby.
+- Choose your hero before playing. MC Pao has Black VIP, Classic White and Monaco Gold
+  outfits; Marco has his signature Grand Cru robe. The rival and final boss switch
+  with your hero. Return to the lobby from Pause to change characters.
 - Find the optional **Cuvée 36K** on the upper harbor route for +3,600 points.
 
 ## Production
@@ -66,6 +78,11 @@ With the dev server running, use another Terminal:
 ```sh
 npx playwright install chromium webkit
 npm run test:game
+npm run test:game:marco
+npm run test:characters
+npm run test:marco-actions
+npm run test:marco-upper
+npm run test:pao-rivals
 npm run test:mobile
 npm run test:ui
 npm run test:phones
@@ -73,6 +90,16 @@ npm run test:phones
 
 - `test:game`: complete keyboard route, intentional boss death, checkpoint retry,
   all boss phases and Lambo finish.
+- `test:game:marco`: the same full story with Marco, including boss death and checkpoint retry.
+- `test:characters`: saved selection, exact movement/jump/slam parity, swapped rivals,
+  pause/restart/replay, Marco animation sheet and both heroes across eight phone scenarios.
+- `test:marco-actions`: actual rendered run cycles, turns, jump/slam/landing,
+  toast, turbo, damage/defeat, crawl/emerging and car-entry/finale poses.
+  Asserts approved V2 artwork is used, rather than a loading fallback.
+- `test:marco-upper`: reach the terrace steps, cellar gallery, moving lift and
+  optional Cuvée 36K through normal controls.
+- `test:pao-rivals`: all 24 approved Mini Pao frames, patrol/phone/charge/stomp
+  actions, mirrored turns, phone layouts and artwork failure/retry.
 - `test:mobile`: the same complete route using actual two-finger browser touch events.
 - `test:ui`: settings, fullscreen, sharing, replay, editor, costume cycling,
   touch actions and rotation pause.
@@ -101,6 +128,28 @@ run the dev server, then `npm run art:pack` before rebuilding. This compiles the
 native sprite canvases into `public/assets/polish/game-atlas-v3.png` and updates
 `src/game/artAtlas.ts`. The compiler waits for real source frames before capture.
 
+Marco uses the user-approved **Character Study V2** artwork, preserved in
+`art/marco/approved-character-v2.png`. Its three transparent source sheets contain
+40 generated frames for running, breathing, aerial actions, slam/stomp, landing,
+hurt/defeat, toast, swimming, victory and car entry. Turbo uses the run cycle with
+boost timing and the existing halo/afterimages. Exact generation prompts and frame
+order are recorded in `art/marco/ASSET_NOTES.json`.
+
+`src/game/approvedMarcoSprites.ts` loads and slices the three sheets in
+`public/assets/marco/`, cleans alpha residue and preserves fixed pose anchors.
+Marco's Play button waits for all frames, with a retry and Pao option on failure.
+These sheets do not require repacking the original Pao atlas.
+
+Marco faces the approved **Mini MC Pao** caricature, preserved in
+`art/pao-rival/approved-enemy-v1.png`. Two transparent sheets provide 24 frames:
+eight waddling steps, four phone-call poses, two charge anticipations, eight
+frantic charge steps and two comic stomp aftermath poses. The VIP boss uses the
+same caricature at a larger size. `approvedPaoRivals.ts` preserves foot anchors
+and exposes loading/retry status; Marco's start button waits for both hero and
+rival artwork. Generation prompts live in `art/pao-rival/ASSET_NOTES.json`.
+Playing Pao retains the original Mini Marco rivals.
+
+Development character override: `?character=marco` (or `pao`).
 Development scene links: `?boss=1`, `?swim=1`, `?yacht=1`, `?lambo=1`.
 Development exposes `render_game_to_text()` and `advanceTime(ms)`;
 manual time stepping stays enabled until reload.

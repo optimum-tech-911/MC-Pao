@@ -1,0 +1,86 @@
+{
+  "status": "Approved V2 production artwork integrated and validated.",
+  "generator": "built-in image_gen",
+  "approved_design": "art/marco/approved-character-v2.png",
+  "source_master": "exec-9f8c1499-3a7d-447e-825e-3e9d408395f8.png",
+  "sheets": [
+    {
+      "file": "public/assets/marco/marco-ground-v2.png",
+      "grid": [
+        4,
+        4
+      ],
+      "mapping": [
+        "run.0",
+        "run.1",
+        "run.2",
+        "run.3",
+        "run.4",
+        "run.5",
+        "run.6",
+        "run.7",
+        "idle.0",
+        "idle.1",
+        "idle.2",
+        "idle.3",
+        "land.0",
+        "land.1",
+        "hurt",
+        "stomp"
+      ],
+      "prompt": "Use case: identity-preserve / game sprite production.\nReference image1 is the USER-APPROVED Marco Mouly CHARACTER STUDY V2. This design is locked. Reproduce THIS exact character's recognizable face and proportions, not the earlier generic code sprite. Short dark receding/thinning hair with gray temples, lined high forehead, expressive brows/hazel eyes, natural substantial ROUND-tipped nose, mature narrow cheeks, close uneven salt-and-pepper stubble. Exact luxurious burgundy silk robe, broad antique-gold shawl lapels, gold cuffs/hem embroidery, tied gold sash, black V-neck underlayer, black trousers and gold-buckle black loafers. Same wine bottle dark green with gold foil and cream label held securely by the SAME near hand throughout unless explicitly secured for swimming. No sunglasses, crown, other outfit, extra bottle, additional character or loose fragments.\nMedium: polished clean 16-bit pixel art matching the approved board. Sharp deliberate square pixels with rich restrained face/silk shading. No vector/3D/smooth painterly render, no blur, no noisy pixels. Native game sprite art, not a presentation board.\nTechnical: EXACT uniform grid specified below; every cell identical size and separated by generous truly transparent empty padding. No gridlines, labels, letters, numbers, shadows, backgrounds or decorations. Transparent RGBA background throughout. Full actor in every cell, never cropped. Default facing RIGHT in a readable 3/4 side view as the board's small SPRITE. Character head, hair, robe, body proportions, costume pattern and wine bottle consistent across all cells. Think one hand-drawn sprite rig changing poses, not different drawings of different people. Hips centered on the cell's vertical midpoint line. Standing ground contact baseline at90% of cell height, leave10% transparent below; same scene baseline across cells. Preserve natural body bob, crouch and foot lift relative to that common groundline. No source pieces touching grid edges.\nAsset: GROUND ACTIONS, EXACT 4 COLUMNS × 4 ROWS,16 full-body frames, ordered strictly left-to-right then top-to-bottom.\nROW1: RUN frames1,2,3,4.\nROW2: RUN frames5,6,7,8 completing a seamless8-frame run loop.\nRun must have genuine articulated hip-knee-ankle and shoulder-elbow-wrist movement: alternate leading foot contacts, low compression, bent-knee passing/recovery, subtle airborne up-poses, then opposite-foot contact and recovery. Opposite arms counter-swing; bottle remains gripped with forearm controlled. Robe panels and sash follow through behind the motion, same cloth length. No skating, no eight copies with only feet moved. The head stays consistent, slightly forward lean. Safe feet/shoes entirely inside every cell.\nROW3: IDLE frames1,2,3,4, subtle breathing/bottle shift, one blink, calm confident upright stance with free hand relaxed by side (NOT in pocket so it can animate).\nROW4 cell1: LAND impact, knees bent, hips lower, heels planted, bottle protected.\nROW4 cell2: LAND recovery, half crouch returning to idle.\nROW4 cell3: HURT recoil, shoulders back, one foot braced, controlled startled expression, still holding bottle.\nROW4 cell4: STOMP contact, feet firm/knees flexed, bottle secured near torso, composed determined expression.\nAll frames same right-facing 3/4 view and same generous cellpadding."
+    },
+    {
+      "file": "public/assets/marco/marco-actions-v2.png",
+      "grid": [
+        4,
+        4
+      ],
+      "mapping": [
+        "jump",
+        "apex",
+        "fall",
+        "doubleJump",
+        "groundPound",
+        "defeat",
+        "carEntry",
+        "victory",
+        "toast.0",
+        "toast.1",
+        "toast.2",
+        "toast.3",
+        "toast.4",
+        "toast.5",
+        "toast.6",
+        "toast.7"
+      ],
+      "prompt": "Use case: identity-preserve / game sprite production.\nReference image1 is the USER-APPROVED Marco Mouly CHARACTER STUDY V2. This design is locked. Reproduce THIS exact character's recognizable face and proportions, not the earlier generic code sprite. Short dark receding/thinning hair with gray temples, lined high forehead, expressive brows/hazel eyes, natural substantial ROUND-tipped nose, mature narrow cheeks, close uneven salt-and-pepper stubble. Exact luxurious burgundy silk robe, broad antique-gold shawl lapels, gold cuffs/hem embroidery, tied gold sash, black V-neck underlayer, black trousers and gold-buckle black loafers. Same wine bottle dark green with gold foil and cream label held securely by the SAME near hand throughout unless explicitly secured for swimming. No sunglasses, crown, other outfit, extra bottle, additional character or loose fragments.\nMedium: polished clean 16-bit pixel art matching the approved board. Sharp deliberate square pixels with rich restrained face/silk shading. No vector/3D/smooth painterly render, no blur, no noisy pixels. Native game sprite art, not a presentation board.\nTechnical: EXACT uniform grid specified below; every cell identical size and separated by generous truly transparent empty padding. No gridlines, labels, letters, numbers, shadows, backgrounds or decorations. Transparent RGBA background throughout. Full actor in every cell, never cropped. Default facing RIGHT in a readable 3/4 side view as the board's small SPRITE. Character head, hair, robe, body proportions, costume pattern and wine bottle consistent across all cells. Think one hand-drawn sprite rig changing poses, not different drawings of different people. Hips centered on the cell's vertical midpoint line. Standing ground contact baseline at90% of cell height, leave10% transparent below; same scene baseline across cells. Preserve natural body bob, crouch and foot lift relative to that common groundline. No source pieces touching grid edges.\nAsset: AERIAL AND TOAST ACTIONS, EXACT 4 COLUMNS × 4 ROWS,16 full-body frames, ordered strictly left-to-right then top-to-bottom.\nROW1 cell1: JUMP ascent, one knee lifted, other leg trailing, free arm aiding balance, bottle held safely.\nROW1 cell2: JUMP APEX, knees slightly tucked, balanced body and level head.\nROW1 cell3: FALL descent, feet below hips, knees ready to land, free arm out for balance.\nROW1 cell4: DOUBLE JUMP, a strong visibly different compact knee tuck and free arm lift; bottle secure.\nROW2 cell1: DOWNWARD SLAM, body braced vertically, BOTH feet together pointing downward, knees compact, bottle cradled close to chest, free arm guards it. Full character intact.\nROW2 cell2: DEFEAT, clean dignified seated/kneeling exhausted pose near the groundline, head bowed, bottle unbroken held close, not grotesque and not flattened.\nROW2 cell3: CAR ENTRY, turned slightly right, one knee stepping up, bent torso ducking and free hand reaching forward to an imaginary open car door; no car drawn, bottle safely held.\nROW2 cell4: VICTORY, confident upright small celebratory free-hand gesture with bottle proudly held (NOT a king/villain pose).\nROW3: TOAST frames1,2,3,4: relaxed bottle at waist, elbow begins lift, forearm lifts bottle to shoulder, bottle high at headlevel.\nROW4: TOAST frames5,6,7,8: hold raised bottle confidently with tiny confident smile; begin lowering, halfway down, relaxed bottle at waist to match firstframe.\nToast must be one smooth lift-hold-lower arc with actual shoulder/elbow/wrist changes and bottle attached to fingers. Never float bottle separately. Frameheight/hipalignment constant except intentional crouch. All full-body frames in same right-facing3/4 view."
+    },
+    {
+      "file": "public/assets/marco/marco-swim-v2.png",
+      "grid": [
+        4,
+        2
+      ],
+      "mapping": [
+        "swim.0",
+        "swim.1",
+        "swim.2",
+        "swim.3",
+        "swim.4",
+        "swim.5",
+        "swim.6",
+        "swim.7"
+      ],
+      "prompt": "Use case: identity-preserve / game sprite production.\nReference image1 is the USER-APPROVED Marco Mouly CHARACTER STUDY V2. This design is locked. Reproduce THIS exact character's recognizable face and proportions, not the earlier generic code sprite. Short dark receding/thinning hair with gray temples, lined high forehead, expressive brows/hazel eyes, natural substantial ROUND-tipped nose, mature narrow cheeks, close uneven salt-and-pepper stubble. Exact luxurious burgundy silk robe, broad antique-gold shawl lapels, gold cuffs/hem embroidery, tied gold sash, black V-neck underlayer, black trousers and gold-buckle black loafers. Same wine bottle dark green with gold foil and cream label held securely by the SAME near hand throughout unless explicitly secured for swimming. No sunglasses, crown, other outfit, extra bottle, additional character or loose fragments.\nMedium: polished clean 16-bit pixel art matching the approved board. Sharp deliberate square pixels with rich restrained face/silk shading. No vector/3D/smooth painterly render, no blur, no noisy pixels. Native game sprite art, not a presentation board.\nTechnical: EXACT uniform grid specified below; every cell identical size and separated by generous truly transparent empty padding. No gridlines, labels, letters, numbers, shadows, backgrounds or decorations. Transparent RGBA background throughout. Full actor in every cell, never cropped. Default facing RIGHT in a readable 3/4 side view as the board's small SPRITE. Character head, hair, robe, body proportions, costume pattern and wine bottle consistent across all cells. Think one hand-drawn sprite rig changing poses, not different drawings of different people. Hips centered on the cell's vertical midpoint line. Standing ground contact baseline at90% of cell height, leave10% transparent below; same scene baseline across cells. Preserve natural body bob, crouch and foot lift relative to that common groundline. No source pieces touching grid edges.\nAsset: FREESTYLE SWIMMING, EXACT 4 COLUMNS × 2 ROWS,8 horizontal full-body frames, ordered left-to-right then top-to-bottom.\nMarco swims RIGHT in a real alternating crawl stroke, robe trails behind, feet kick in turn from hips/knees/ankles. This is the EXACT same approved face/hair/robe/cuffs/sash/black loafers, horizontal in water; do not draw water.\nThe wine bottle is now tucked horizontally and secured visibly in the gold sash near the torso so BOTH hands are free to swim. One bottle only, stays fixed to the sash relative to torso.\nMake8 contiguous phases of one smooth crawl cycle: recovery elbow lifts from water behind shoulder, bent elbow advances past head, hand entry well ahead, extended forward reach, hand catches and pulls downward beneath torso, underwater pull rearward, hand exits beside hip, recovery begins. Other arm moves exactly half a cycle out of phase. Both arms anatomically connected at shoulders through elbows to wrists. Legs alternate a compact bent-knee flutter kick.\nEyes/face orientation and torso alignment stay anchored at the SAME source position in every cell. Head near78% cellwidth, eye line at42% cellheight; feet extend toward8%cellwidth and hands stay within95%cellwidth. All content within8%-95%cellwidth and12%-88%cellheight. Full width fits within eachcell with transparent margins. No upright people, swimming pool, splashes, waterline, bubbles, background or motion marks. Real crisp pixel sprites on transparent RGBA."
+    }
+  ],
+  "validation": [
+    "40 populated frames; binary alpha; grounded anchors; no side/top clipping",
+    "Approved-v2 source asserted in actual actions and phone layouts",
+    "Run, turning, jump/apex/fall/double-jump, stomp/slam, landing, turbo, toast, hurt, grounded defeat, crawl/emerge, car entry and finale",
+    "Character selection, retry after asset failure, Pao escape option and eight phone scenarios",
+    "Full Pao/Marco stories with intentional checkpoint death/retry; Marco touch story; three hearts at victory",
+    "19 unit/route tests, TypeScript, production build, UI suite and focused production artwork smoke"
+  ]
+}

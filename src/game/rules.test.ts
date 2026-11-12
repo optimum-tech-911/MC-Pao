@@ -523,3 +523,13 @@ test('first Marco patrol stays inside a valid range without frame-by-frame facin
   for(let i=0;i<120;i++)stepMarcoAI(narrow,player,1/60,true);
   assert.equal(narrow.x,100);assert.equal(narrow.facing,1);assert.equal(narrow.vx,0);
 });
+
+test('watch turbo preserves jump, landing, pose and stationary animations', () => {
+  const boosted = { ...createInitialPlayer(), scooterTimer: 5 };
+  assert.equal(selectPlayerAnimState(boosted), 'idle', 'standing with turbo must not run in place');
+  assert.equal(selectPlayerAnimState({ ...boosted, vx: 300 }), 'scooter');
+  assert.equal(selectPlayerAnimState({ ...boosted, vx: 300, grounded: false, vy: -200 }), 'jump');
+  assert.equal(selectPlayerAnimState({ ...boosted, vx: 300, grounded: false, vy: 200 }), 'stomp');
+  assert.equal(selectPlayerAnimState({ ...boosted, landTimer: .14 }), 'land');
+  assert.equal(selectPlayerAnimState({ ...boosted, vipPoseTimer: 1.2 }), 'vip_pose');
+});

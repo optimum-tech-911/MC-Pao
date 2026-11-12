@@ -3,6 +3,12 @@ import { installPolishedSprites, installPolishedYacht, installPackedSprites } fr
 
 export interface PaoSpriteSet {
   polished?: boolean;
+  source?: string;
+  defeat?: HTMLCanvasElement;
+  carEntry?: HTMLCanvasElement;
+  victory?: HTMLCanvasElement;
+  runCycleDistance?: number;
+  sprintCycleDistance?: number;
   apex?: HTMLCanvasElement;
   fall?: HTMLCanvasElement;
   idle: HTMLCanvasElement[]; // 4-frame breathing + chain swing + blink
@@ -25,12 +31,19 @@ export interface SpriteBank {
   marco: Record<
     MarcoArchetype,
     {
+      source?: string;
+      windupFrames?: HTMLCanvasElement[];
+      charge?: HTMLCanvasElement[];
+      squishedFrames?: HTMLCanvasElement[];
       walk: HTMLCanvasElement[]; // 4-frame articulated waddle + arm wave + head tilt
       windup: HTMLCanvasElement;
       squished: HTMLCanvasElement;
     }
   >;
   boss: {
+    source?: string;
+    chargingFrames?: HTMLCanvasElement[];
+    windupFrames?: HTMLCanvasElement[];
     shielded: HTMLCanvasElement[];
     vulnerable: HTMLCanvasElement[];
     charging: HTMLCanvasElement;
